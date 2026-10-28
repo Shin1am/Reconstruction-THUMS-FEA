@@ -1,0 +1,29 @@
+Template: 179,676 pts; skin PIDs [88000221, 88000222, 88000223, 88000229, 88000230, 88000231]; skin surface 6,182 pts
+[load_template] 0.56s
+Subject skin STL: 40,146 pts -> shoulder crop z >= -925: 36,109 pts
+Subject point set: (3000, 3)
+[load_subject] 0.11s
+[stage0_center] 0.01s
+[stage0.5b_seed] 0.0s
+[stage0.5_fps] 0.44s
+Rigid scale 1.0375, t [ 0.93 19.52 21.25]
+[stage2_rigid_cpd] 24.76s
+Affine SV raw [1.237 1.    0.803] -> clamped [1.237 1.    0.803]
+[stage3_affine_cpd] 25.99s
+[stage4_deformable_cpd] 101.52s
+[stage5_tps] 0.53s
+[stage6_icp] 0.0s
+blend: kept 1688, reverted 96 / 6182
+[stage6.5_blend] 0.03s
+                       stage   mean  median    rms    max  chamfer  hausdorff
+                   0. Center 16.436  11.581 21.392 71.121   32.518     71.121
+            1. PCA (skipped) 16.436  11.581 21.392 71.121   32.518     71.121
+                2. Rigid CPD  9.685   7.466 12.211 47.802   19.761     65.946
+               3. Affine CPD  7.871   6.790  9.319 46.291   15.908     53.259
+            4. Non-rigid CPD  7.847   6.763  9.293 46.291   15.839     52.528
+      5. TPS (dense surface)  7.453   6.610  8.569 46.291   14.870     52.528
+            6. Non-rigid ICP  7.453   6.610  8.569 46.291   14.870     52.528
+6.5 Confidence blend (final)  6.158   5.668  6.896 32.087   13.333     56.719
+Wrote D:\2d_3d_regis dataset\New_version\Document\MaiAlgo\out_case_02_B_noicp\Head_V6_registered.vtu
+[stage5b_write] 60.27s
+done 214.3 s
