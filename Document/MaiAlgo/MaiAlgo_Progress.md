@@ -60,11 +60,12 @@ Reading: the skin fits well but the interior is barely better than rigid+scale a
 ## 5. Environment
 
 - No system Python was on the PATH. I built a venv at `C:\Users\Acer\AppData\Local\Temp\rv` (Python 3.12, numpy 2.x, scipy, pandas, pyvista 0.49, pycpd 2.5.4, matplotlib, nibabel). It is outside the project. Day 1 used pycpd 2.0.0 and the legacy run still matched.
-- This folder is **not a git repository** (checked 2026-10-28), so no branch exists yet. A `.gitignore` is present.
+- Git: this folder was not a repository. On 2026-10-28 I ran `git init` (default branch `main`), extended `.gitignore`, made one initial commit (126 files, `.git` is 167 MB), and created and checked out the branch **`TryAlgoMai`**. All work from here goes on that branch. Git needed `-c safe.directory=...` on each command because the D: drive does not record ownership; I did not change your global git config.
+- `.gitignore` now also excludes: `resultBaseline/`, `FE_data/`, `kfile/`, `ls_folder/`, `*.zip`, `*.nrrd`, `*.mp4`, `*.vtp`, `*.ply`, `*.npy`, `._*`, and per-run output folders under `Document/` (`out_*/`, `rerun/`, `ablation/`). `Data/`, `outputs/` and mesh/volume formats were already ignored.
 
 ## 6. Open items
 
-- [ ] Decide on git: initialize a repo here and create the `TryAlgoMai` branch (not done; see the note in chat).
+- [x] Git repo initialized and `TryAlgoMai` branch created (2026-10-28).
 - [ ] Test the neck-cut hypothesis (crop template and subject to the same head region).
 - [ ] Repeat on 3–4 more cases to see the spread.
 - [ ] Then test one change at a time against the Day 3 numbers: no ICP, ICP residual smoothed through the thickness, elastic option.
