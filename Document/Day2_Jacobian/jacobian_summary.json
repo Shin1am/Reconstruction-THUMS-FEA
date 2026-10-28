@@ -1,0 +1,29 @@
+{
+  "solid_elements": 176441,
+  "element_kinds": {
+    "hex": 163684,
+    "tet (collapsed hex)": 8669,
+    "wedge/other (collapsed hex)": 4088
+  },
+  "failing_template": 4,
+  "failing_registered": 742,
+  "newly_failing": 739,
+  "fixed_by_warp": 1,
+  "any_corner_sign_change": 740,
+  "template_states": {
+    "ok": 176437,
+    "twisted (mixed signs)": 4
+  },
+  "registered_states": {
+    "ok": 175699,
+    "twisted (mixed signs)": 741,
+    "reversed (all corners negative)": 1
+  },
+  "volume_ratio_quantiles_1_5_50_95_99": [
+    0.6901206416158678,
+    0.9336162110904804,
+    1.8253322192002317,
+    2.2219956026240726,
+    2.394959298468648
+  ]
+}

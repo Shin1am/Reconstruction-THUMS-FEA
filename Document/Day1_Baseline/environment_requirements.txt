@@ -1,0 +1,15 @@
+python==3.13.9
+platform=macOS-14.6-arm64-arm-64bit-Mach-O
+machine=arm64
+numpy==2.3.5
+scipy==1.16.3
+pyvista==0.48.4
+vtk==9.6.2
+pycpd==2.0.0
+pandas==2.3.3
+matplotlib==3.10.6
+nbconvert==7.16.6
+nbclient==0.10.2
+ipykernel==6.31.0
+jupyter_client==8.6.3
+jupyter_core==5.8.1
