@@ -1,0 +1,257 @@
+{
+  "run_utc": "2026-10-19T16:16:40.987902Z",
+  "per_cell_seconds": [
+    {
+      "cell": 2,
+      "stage": "Setup / imports",
+      "seconds": 1.92
+    },
+    {
+      "cell": 4,
+      "stage": "Configuration",
+      "seconds": 0.0
+    },
+    {
+      "cell": 6,
+      "stage": "Load template + extract skin surface",
+      "seconds": 0.28
+    },
+    {
+      "cell": 8,
+      "stage": "Load subject point set (fallback surface)",
+      "seconds": 0.23
+    },
+    {
+      "cell": 10,
+      "stage": "Stage 0   Center only",
+      "seconds": 0.31
+    },
+    {
+      "cell": 12,
+      "stage": "Stage 0.5b Kabsch landmark seed",
+      "seconds": 0.34
+    },
+    {
+      "cell": 14,
+      "stage": "Stage 0.5 Farthest-point sampling",
+      "seconds": 0.42
+    },
+    {
+      "cell": 16,
+      "stage": "Stage 1   PCA pre-alignment (skipped)",
+      "seconds": 0.29
+    },
+    {
+      "cell": 18,
+      "stage": "Stage 2   Rigid CPD",
+      "seconds": 13.27
+    },
+    {
+      "cell": 20,
+      "stage": "Stage 3   Affine CPD + SV clamp",
+      "seconds": 14.51
+    },
+    {
+      "cell": 22,
+      "stage": "Stage 4   Deformable CPD",
+      "seconds": 25.45
+    },
+    {
+      "cell": 24,
+      "stage": "Stage 5   TPS (landmarks -> skin + whole mesh)",
+      "seconds": 4.45
+    },
+    {
+      "cell": 27,
+      "stage": "Stage 6   Non-rigid ICP",
+      "seconds": 0.32
+    },
+    {
+      "cell": 29,
+      "stage": "Stage 6.5 Confidence blend",
+      "seconds": 0.4
+    },
+    {
+      "cell": 31,
+      "stage": "Stage 7   Validation table",
+      "seconds": 0.08
+    },
+    {
+      "cell": 32,
+      "stage": "Stage 7   Bar plot",
+      "seconds": 0.07
+    },
+    {
+      "cell": 34,
+      "stage": "Stage 5b  TPS rebuild + write .vtu",
+      "seconds": 18.22
+    },
+    {
+      "cell": 36,
+      "stage": "QA       k_mesh_qa on written mesh",
+      "seconds": 30.37
+    }
+  ],
+  "total_seconds_sum_of_cells": 110.9,
+  "validation_fresh": [
+    {
+      "stage": "0. Center+resize",
+      "mean": "17.435",
+      "median": "12.502",
+      "rms": "21.775",
+      "max": "52.916",
+      "chamfer": "39.416",
+      "hausdorff": "67.395"
+    },
+    {
+      "stage": "1. PCA pre-align",
+      "mean": "17.435",
+      "median": "12.502",
+      "rms": "21.775",
+      "max": "52.916",
+      "chamfer": "39.416",
+      "hausdorff": "67.395"
+    },
+    {
+      "stage": "2. Rigid CPD",
+      "mean": "8.443",
+      "median": "7.025",
+      "rms": "10.751",
+      "max": "49.554",
+      "chamfer": "17.851",
+      "hausdorff": "72.475"
+    },
+    {
+      "stage": "3. Affine CPD",
+      "mean": "9.613",
+      "median": "6.869",
+      "rms": "14.225",
+      "max": "66.946",
+      "chamfer": "17.656",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "4. Non-rigid CPD",
+      "mean": "9.587",
+      "median": "6.847",
+      "rms": "14.206",
+      "max": "66.946",
+      "chamfer": "17.57",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "5. TPS (dense surface)",
+      "mean": "7.73",
+      "median": "6.618",
+      "rms": "10.218",
+      "max": "66.946",
+      "chamfer": "14.899",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "6. Non-rigid ICP",
+      "mean": "4.276",
+      "median": "3.195",
+      "rms": "7.827",
+      "max": "66.946",
+      "chamfer": "8.27",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "6.5 Confidence blend (final)",
+      "mean": "3.907",
+      "median": "3.323",
+      "rms": "5.187",
+      "max": "36.466",
+      "chamfer": "8.09",
+      "hausdorff": "49.029"
+    }
+  ],
+  "validation_reference": [
+    {
+      "stage": "0. Center+resize",
+      "mean": "17.435",
+      "median": "12.502",
+      "rms": "21.775",
+      "max": "52.916",
+      "chamfer": "39.416",
+      "hausdorff": "67.395"
+    },
+    {
+      "stage": "1. PCA pre-align",
+      "mean": "17.435",
+      "median": "12.502",
+      "rms": "21.775",
+      "max": "52.916",
+      "chamfer": "39.416",
+      "hausdorff": "67.395"
+    },
+    {
+      "stage": "2. Rigid CPD",
+      "mean": "8.443",
+      "median": "7.025",
+      "rms": "10.751",
+      "max": "49.554",
+      "chamfer": "17.851",
+      "hausdorff": "72.475"
+    },
+    {
+      "stage": "3. Affine CPD",
+      "mean": "9.613",
+      "median": "6.869",
+      "rms": "14.225",
+      "max": "66.946",
+      "chamfer": "17.656",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "4. Non-rigid CPD",
+      "mean": "9.587",
+      "median": "6.847",
+      "rms": "14.206",
+      "max": "66.946",
+      "chamfer": "17.57",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "5. TPS (dense surface)",
+      "mean": "7.73",
+      "median": "6.618",
+      "rms": "10.218",
+      "max": "66.946",
+      "chamfer": "14.899",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "6. Non-rigid ICP",
+      "mean": "4.276",
+      "median": "3.195",
+      "rms": "7.827",
+      "max": "66.946",
+      "chamfer": "8.27",
+      "hausdorff": "66.946"
+    },
+    {
+      "stage": "6.5 Confidence blend (final)",
+      "mean": "3.907",
+      "median": "3.323",
+      "rms": "5.187",
+      "max": "36.466",
+      "chamfer": "8.09",
+      "hausdorff": "49.029"
+    }
+  ],
+  "max_abs_diff_vs_reference": 0.0,
+  "diffs_vs_reference": [],
+  "qa": {
+    "inverted": 7334,
+    "degenerate": 0,
+    "total_solids": 176441,
+    "inverted_pct": 4.157,
+    "max_min_volume_ratio": "1.11e+07"
+  },
+  "reported_versions": {
+    "pyvista": "0.48.4",
+    "numpy": "2.3.5"
+  }
+}

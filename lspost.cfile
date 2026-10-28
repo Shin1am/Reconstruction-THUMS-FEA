@@ -1,0 +1,29 @@
+$# LS-PrePost command file created by LS-PrePost(R) 2026 R1 (v4.13.5DP) - 06Feb2026 -64bit-Window
+$# Created on Jul-1-2026 (16:24:26)
+open keyword "D:\2d_3d_regis dataset\New_version\Head_V6_impact_baseline.k"
+Message 1
+Message 0KEYWORD INPUT 1
+*KEYWORD LONG=Y
+*RIGIDWALL_PLANAR_MOVING_ID
+$#      id                                                                 title
+         1punch
+$#    nsid    nsidex     boxid    offset     birth     death     rwksf
+         0         0         0       0.0       0.01.00000E20       1.0
+$#      xt        yt        zt        xh        yh        zh      fric      wvel
+       0.0      20.0       0.0       0.0      -1.0       0.0       0.3       0.0
+$#    mass        v0
+       5.0    2000.0
+*END
+keyword updatekind
+RIGIDWALL_PLANAR_MOVING
+displayentity Rigidwall Rigidwall off all
+displayentity Rigidwall Rigidwall on 1
+save keywordabsolute 0
+save keywordbylongfmt 0
+save keywordbyi10fmt 0
+save outversion 10
+save keyword "D:\2d_3d_regis dataset\New_version\Head_V6_impact_warped.k"
+save keywordabsolute 0
+save keywordbylongfmt 0
+save keywordbyi10fmt 0
+save keyword "D:\2d_3d_regis dataset\New_version\Head_V6_impact_warped.k"
