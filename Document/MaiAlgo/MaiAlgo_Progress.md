@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-10-30 (section 9)
+Last updated: 2026-10-30 (section 10)
 
 ---
 
@@ -188,3 +188,45 @@ Environment: conda env `2d_3d_regis` (Python 3.10) lacked only `pycpd`; installe
 1. Build C1 as above; decide whether to rename the current notebook to the C2 notebook and drop the GT-eye anchor so C2 is strictly skin-only.
 2. ARAP boundary fix (relax overwritten skin nodes) and ARAP on the other four cases.
 3. C1 start-effect puzzle (18k failing) and case_03 eye error.
+
+---
+
+## 10. Research plan status (Stage 1 / C1 / C2 / C3) and hand-over to another PC (2026-10-30)
+
+### 10.1 Plan (from the research workflow) and status
+
+Goal: separate the error of the 2D-to-3D external reconstruction from the error of the FE registration algorithm. Planned notebooks: `01_validate_2D_to_3D_reconstruction.ipynb`, `02_C1_full_head_registration_baseline.ipynb`, `03_C2_external_only_CT_registration.ipynb`, `04_C3_reconstructed_head_registration.ipynb`.
+
+| Stage | Input to the algorithm | Compared with | Status |
+|---|---|---|---|
+| 1 | SAM 3D mesh from a 2D photo | skin surface from the same subject's CT/MRI | **Not started.** Needs a dataset with photo + CT/MRI of the same subject (HaN-Seg has CT/MRI only, no photos). |
+| C1 | complete 3D head (all GT surfaces: skin, outer/inner skull table, brain, brainstem, eyes, ...) | GT structures; ceiling for C2/C3 | **Not started.** Design below. |
+| C2 | external-only skin from CT/MRI (GT interior hidden) | GT interior, and the C1 baseline | **Done for the algorithm on 5 cases** (sections 7-9). Current notebook = C2. One deviation to remove: the eye-anchored start uses the GT eye centroid. |
+| C3 | external-only skin reconstructed by SAM 3D | GT interior, and C1 | **Not started.** Needs Stage 1 output. |
+
+Decision rule from the plan: C3 good -> pipeline works; C2 good but C3 poor -> reconstruction is the weak part; both poor -> the registration algorithm or its inputs need work.
+
+### 10.2 C1 design (proposed, not built)
+
+1. New notebook `02_C1_full_head_registration_baseline.ipynb` with the same cells as the current notebook, except the driving data.
+2. Driving data: for every THUMS structure take the matching GT surface (skin <-> `skin_surface`, outer/inner skull parts <-> `outer_table_surface` / `inner_table_surface`, cerebrum + cerebellum <-> `brain`, stem parts <-> `brainstem_OAR`, eyes <-> `eyes_OAR`; other GT surfaces listed in `Data/HaN-Seg/GT/README.md`). Fit a single warp (CPD+TPS on the stacked, structure-labelled point sets, or per-structure CPD followed by one TPS), then ARAP for the remaining interior.
+3. Scoring: same interior-vs-GT and Jacobian cells as C2 so the numbers are directly comparable.
+4. Caveat: fit and score on the same surfaces gives a ceiling (how well the model can deform), not a prediction error. Add a hold-out variant (fit skin + skull, score brain) as a middle point between C1 and C2.
+5. Template-to-GT correspondence needs care: GT "brain" excludes the stem; GT cerebrum/cerebellum/dura/falx/tentorium are "approx" (derived, not expert-labelled).
+
+### 10.3 C2 clean-up still to do
+
+- Remove the GT-eye anchor (use a skin-only start, e.g. centroid start with the eye-matched crop replaced by something skin-only such as a chin / vertex / nose-tip based crop) so C2 is strictly external-only; re-measure.
+- Boundary fix for failing solids (798 of 815 newly failing touch the overwritten skin nodes); ARAP on case_03/05/08/12; understand the 18k failures of "eyes start + auto crop" (section 8, step 1) and the 51 mm eye error on case_03; CPD `w > 0` only with a scale constraint.
+- Optional: rename the current notebook to `03_C2_external_only_CT_registration.ipynb`.
+
+### 10.4 Moving to another PC - checklist
+
+1. `git clone https://github.com/Shin1am/Reconstruction-THUMS-FEA.git`, then `git checkout TryAlgoMai` (all work is there; `main` has other contributors' PRs and was merged into this branch). Pull before starting.
+2. Data is not in git. Needed from Google Drive `BioDat_Yusuke_lab/Data`: `mesh_model/Head_V6.vtu`, `Ls_dyna_model/Head_V6.k`, `HaN-Seg/GT/usable/<case>/stl/*.stl` (40 usable cases; QA in `HaN-Seg/GT/qa_summary.csv`). Point the code at it with the environment variable `BIODAT_ROOT` (folder that contains `Data/`); default is `G:/My Drive/BioDat_Yusuke_lab`. The notebook cell 0 reads `DATA_ROOT`; the scripts read `Document/MaiAlgo/cfg.py`. Check the Drive files open (sync can be offline/slow) before a long run.
+3. Python: conda env with numpy, scipy, pandas, pyvista, matplotlib, ipykernel, `pycpd` (2.0.0 via pip on Python 3.10; 2.5.4 on 3.12 was used for the logged numbers). Notebook kernel name expected: `2d_3d_regis`. Set `PYTHONUTF8=1` for the scripts on Windows.
+4. Open `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb`, set `CASE`, `NAME`, switches in cell 0, run top to bottom (about 10 min per case). Presets: baseline = `INIT='centroid', CROP='auto', CPD_W=0`; run C = `INIT='eyes', CROP='eyes'`; D = C + `CPD_W=0.2`.
+5. Run outputs `Document/MaiAlgo/out_<case>_<name>/` are git-ignored and are NOT in the repo; regenerate them (the results CSVs and this log hold the numbers). Batch of the five-case study: the 14 runs listed in `jobs.txt`, run with `run_all.sh` (script versions of the same steps).
+6. Do not edit `Document/Day1_Baseline`, `Day2_Jacobian`, `Day3_Case02_Baseline`. New work and notes go in `Document/MaiAlgo/`; update this log after each experiment.
+7. Git quirks seen on the D: / G: machines: if git reports "dubious ownership", pass `-c safe.directory=...` per command instead of changing global config. In the working tree of the first PC the old `Code/ipynb/*` notebooks show as deleted (a manual move into `Code/notebook/`); that was never committed.
+8. Open items for the other PC: build C1 (10.2), make C2 strictly skin-only (10.3), find a photo+CT dataset for Stage 1 and C3.
