@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-10-29 (section 8)
+Last updated: 2026-10-30 (section 9)
 
 ---
 
@@ -161,3 +161,30 @@ Caveats: ARAP tested on one case only; the first ARAP attempt left the eyes 762 
 1. Fix the boundary: smooth or relax the overwritten skin nodes (e.g. ARAP with soft skin constraints, or ICP residual smoothed through thickness) and re-measure failing solids.
 2. ARAP on case_03/05/08/12; add `prox > 0` and compare.
 3. Understand C1's 18k failures and case_03's eye error (51 mm).
+
+---
+
+## 9. Notebook rewrite and research-plan mapping (2026-10-30)
+
+**Notebook.** `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb` was rewritten from the first cell: 23 cells (3 MB -> 24 KB), one step per cell, short titles only; all explanations moved to `MaiAlgo_Notebook_Guide.md`. It uses the HaN-Seg subject and the G: data root, has the CPD fixes as switches (`INIT`, `CROP`, `CPD_W`, `USE_ICP`), and includes the interior-vs-GT check, the Jacobian check, ARAP and the results table as cells. The old landmark / SAM3D cells are removed (original kept in `CPD_TPS_Skin_Only_Pipeline_v2.ipynb`).
+
+**Verification.** A full pass of the notebook cells on case_02 (`INIT='eyes', CROP='eyes'`, run name `C_nb`) reproduces the script run C exactly, and its ARAP stage reproduces `C_eyes_arap`:
+
+| Run | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | failing |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| C (script) | 3.40 | 37.85 | 7.40 | 7.76 | 9.07 | 11.70 | 4.69 | 888 |
+| C_nb (notebook) | 3.40 | 37.85 | 7.40 | 7.76 | 9.07 | 11.70 | 4.69 | 888 |
+| C + ARAP (script) | 3.40 | 37.85 | 7.34 | 7.30 | 8.42 | 9.85 | 4.69 | 820 |
+| C_nb + ARAP (notebook) | 3.40 | 37.85 | 7.34 | 7.30 | 8.42 | 9.85 | 4.69 | 820 |
+
+Environment: conda env `2d_3d_regis` (Python 3.10) lacked only `pycpd`; installed `pycpd 2.0.0` (pip has nothing newer for 3.10; the numbers above come from the temporary venv with pycpd 2.5.4, so a run in the conda env may differ slightly).
+
+**Mapping to the research plan (Stage 1 / C1 / C2 / C3).** Naming warning: the run labels "C1" and "C2" in section 8 step 1 mean *start* and *crop* splits, not the plan's stages C1/C2.
+- Everything in this log so far is the plan's **C2** setup: only the subject skin drives the registration, the GT interior is used for scoring only. (One deviation from strict C2: the eye-anchored start uses the GT eye centroid.) The numbers in sections 7-8 are therefore C2 numbers.
+- **C1** (complete head model, best case) is not done. Proposed design: a separate notebook `02_C1_full_head_registration_baseline.ipynb`; same CPD/TPS/ARAP stack but driven by all GT surfaces (skin, outer/inner skull table, brain, brainstem, eyes), each THUMS structure matched to its own GT structure, scored with the same interior and Jacobian cells. Fit and score on the same surfaces gives a ceiling, not a prediction error; add a hold-out variant (e.g. fit skin + skull, score brain) as a middle point.
+- **C3** (SAM 3D skin as input) and **Stage 1** (SAM 3D vs CT skin) are not started.
+
+### Next
+1. Build C1 as above; decide whether to rename the current notebook to the C2 notebook and drop the GT-eye anchor so C2 is strictly skin-only.
+2. ARAP boundary fix (relax overwritten skin nodes) and ARAP on the other four cases.
+3. C1 start-effect puzzle (18k failing) and case_03 eye error.
