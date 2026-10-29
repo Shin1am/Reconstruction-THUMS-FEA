@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-10-30 (section 10)
+Last updated: 2026-10-30 (section 11)
 
 ---
 
@@ -230,3 +230,21 @@ Decision rule from the plan: C3 good -> pipeline works; C2 good but C3 poor -> r
 6. Do not edit `Document/Day1_Baseline`, `Day2_Jacobian`, `Day3_Case02_Baseline`. New work and notes go in `Document/MaiAlgo/`; update this log after each experiment.
 7. Git quirks seen on the D: / G: machines: if git reports "dubious ownership", pass `-c safe.directory=...` per command instead of changing global config. In the working tree of the first PC the old `Code/ipynb/*` notebooks show as deleted (a manual move into `Code/notebook/`); that was never committed.
 8. Open items for the other PC: build C1 (10.2), make C2 strictly skin-only (10.3), find a photo+CT dataset for Stage 1 and C3.
+
+---
+
+## 11. Making C1 and C2 different and valuable (discussion, 2026-10-30; nothing implemented)
+
+**Problem.** The current code drives the registration with the skin only. Run through it, "C1" would give the same numbers as C2. C1 only means something if the algorithm can also take the internal structures as input. Open question for the user: is C1 (a) an oracle where the same warp also sees the internal structures (recommended: gives a ceiling for C2/C3, but is not a deployable algorithm) or (b) the same skin-only algorithm on a clean full model (then C1 and C2 are one experiment)? To be decided; this section assumes (a).
+
+**What must stay identical between C1 and C2:** template, warp family and regularisation (CPD -> TPS -> ARAP), start alignment (no GT-derived anchor in either; the current GT-eye anchor must go), scoring (interior vs GT + Jacobians). Suggested code shape: one `register(template, targets)` where `targets` maps structure name to points; C1 passes all structures, C2 passes only the skin. Tune hyper-parameters once, not per condition.
+
+**Ideas, in suggested order**
+1. **Information ladder.** Same warp, increasing observations: skin only (C2) -> + outer skull -> + both skull tables -> + brain -> everything (C1). Error per rung shows which internal structure is worth measuring or predicting; C1 and C2 become the two ends of a curve. The "fit skin + skull, score brain" rung is a true held-out test.
+2. **Learned skin -> interior prior (main contribution).** Run C1 on all 40 usable HaN-Seg cases; every output is the THUMS head warped to that subject with identical topology. Build a statistical model (e.g. PCA of node displacements). C2 predicts the model coefficients from the skin alone (ridge / PLS), tested leave-one-subject-out; C3 uses the same predictor with a SAM 3D skin. Error split: C1 residual = what the model cannot represent; C2 - C1 = what the skin cannot tell; C3 - C2 = reconstruction error. Build the model in warp space and finish with ARAP so elements stay valid (warping alone leaves about 800 failing solids, section 8).
+3. **Structural priors for C2.** Skin-to-skull soft-tissue thickness maps learned from the 40 subjects, brain nested inside the inner skull with a CSF gap, no surface crossing. Barely active in C1, informative in C2.
+4. **Uncertainty.** Sample the regression posterior to get several plausible interiors and a per-region spread, so FE users know where the predicted interior can be trusted.
+
+**Cautions.** Idea 2 needs a clean C1 on all 40 cases first. 40 cases is the full sample, so use leave-one-out and expect no separate final test set. GT cerebrum / cerebellum / dura / falx / tentorium are "approx" labels, which limits how far the brain-side error can be trusted.
+
+**Suggested next steps:** settle the (a)/(b) question; make C2 strictly skin-only; build `register(template, targets)` and the ladder (idea 1) on case_02 and the four other cases; then C1 on all 40 cases as input to idea 2.
