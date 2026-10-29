@@ -1,0 +1,31 @@
+Template: 179,676 pts; skin PIDs [88000221, 88000222, 88000223, 88000229, 88000230, 88000231]; skin surface 6,182 pts
+[load_template] 0.49s
+eye-matched crop: template skin bottom is 128.7 mm below eyes -> subject z >= -912.6
+Subject skin STL: 40,146 pts -> shoulder crop z >= -913: 34,106 pts
+Subject point set: (3000, 3)
+[load_subject] 0.09s
+init: eye-anchored; centroid offset moved from [   2.5   75.5 -800.1] to [  -1.6   10.4 -783.9]
+[stage0_center] 0.01s
+[stage0.5b_seed] 0.0s
+[stage0.5_fps] 0.43s
+Rigid scale 0.9841, t [ -2.51  -8.56 -13.57]
+[stage2_rigid_cpd] 28.51s
+Affine SV raw [1.026 0.934 0.772] -> clamped [1.026 0.934 0.8  ]
+[stage3_affine_cpd] 30.1s
+[stage4_deformable_cpd] 105.81s
+[stage5_tps] 0.76s
+[stage6_icp] 0.23s
+blend: kept 2915, reverted 88 / 6182
+[stage6.5_blend] 0.03s
+                       stage   mean  median    rms    max  chamfer  hausdorff
+                   0. Center 12.893  10.924 15.379 37.851   27.828     79.918
+            1. PCA (skipped) 12.893  10.924 15.379 37.851   27.828     79.918
+                2. Rigid CPD  5.932   5.209  6.891 24.657   14.495     59.668
+               3. Affine CPD  7.442   5.249  9.914 44.043   21.972     90.751
+            4. Non-rigid CPD  7.429   5.249  9.913 44.043   21.950     90.751
+      5. TPS (dense surface)  6.204   4.780  7.999 44.043   20.264     90.751
+            6. Non-rigid ICP  3.313   2.408  5.445 44.043   14.335     88.602
+6.5 Confidence blend (final)  3.130   2.543  4.404 39.163   12.809     82.532
+Wrote D:\2d_3d_regis dataset\New_version\Document\MaiAlgo\out_case_02_D_eyes_w0.2\Head_V6_registered.vtu
+[stage5b_write] 53.04s
+done 219.7 s

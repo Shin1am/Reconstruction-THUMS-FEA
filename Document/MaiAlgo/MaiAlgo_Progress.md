@@ -70,3 +70,34 @@ Reading: the skin fits well but the interior is barely better than rigid+scale a
 - [ ] Repeat on 3–4 more cases to see the spread.
 - [ ] Then test one change at a time against the Day 3 numbers: no ICP, ICP residual smoothed through the thickness, elastic option.
 - [ ] Optional: synthetic known-warp self-test.
+
+---
+
+## 7. Experiments 1–2 on case_02 (2026-10-29): CPD outlier weight, no-ICP, eye-anchored start
+
+Code: `run_exp.py` (copy of the Day 3 runner with switches), `eval_exp.py`, `jacobian_diagnostic.py` (copy), `aggregate.py`. Results table: `results_case_02.csv`. Run folders `out_*` are git-ignored. Day 3 files were not touched.
+
+Evaluation fix: the GT "brain" excludes the brainstem, so the brain is now compared **without** the THUMS stem parts (PIDs 88000104/105/124/125), and the stem is compared separately with `brainstem_OAR`. The baseline was re-evaluated with this fix (`out_baseline_ref/`), so the first row below differs slightly from Day 3 for the brain.
+
+Diagnostic that led here: after the rigid+scale step the THUMS eyes sit 38 mm below the GT eyes, and the baseline pulls the lower half of the brain down 20–25 mm. The start is poor, and skin alone cannot say where the neck ends.
+
+| Run | Change vs baseline | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z-ext | failing solids |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 baseline | none (Day 3) | 3.51 | 52.3 | 10.9 | 11.8 | 11.8 | 23.2 | 2.4 | 1.30 | 3,594 |
+| A | CPD `w = 0.2` | 2.46 | 215.7 | 70.9 | 80.3 | 82.7 | 111.7 | 37.0 | 0.19 | 96,815 |
+| B | no ICP | 6.16 | 56.7 | 14.0 | 13.4 | 12.1 | 26.0 | 7.2 | 1.24 | 2,091 |
+| C | eye-anchored start + eye-matched crop | 3.40 | 37.9 | 7.4 | 7.8 | 9.1 | 11.7 | 4.7 | 1.12 | 888 |
+| D | C + CPD `w = 0.2` | 3.13 | 82.5 | 5.8 | 6.1 | 9.4 | 9.4 | 1.7 | 0.79 | 822 |
+
+Rigid+scale-only control: skull 13.9 / 13.4, brain 12.1, stem 14.8, eyes 24.5 mm.
+
+Findings:
+1. **A is a collapse, not a result.** With the centroid start, `w = 0.2` makes rigid CPD shrink the template to scale 0.067. Its skin mean (2.46 mm) looks the best of all runs, yet the interior is destroyed. Skin mean error alone is not a safe score.
+2. **The starting alignment matters most.** C (eye-anchored start, crop at the template's own distance below the eyes) beats the baseline on every interior measure: skull 10.9 → 7.4 mm, brainstem 23.2 → 11.7, brain z-stretch 1.30 → 1.12, failing solids 3,594 → 888, and skin Hausdorff 52 → 38. This is the neck/start hypothesis, now supported on one case.
+3. **`w > 0` helps only from a good start.** D improves the skull (5.8 / 6.1 mm) and eyes (1.7 mm), but the skin Hausdorff rises to 82.5 mm (the subject-side coverage gap grows) and the brain is compressed to 0.79 of GT height.
+4. **ICP is not the whole story on a real subject.** Removing it (B) cuts failures from 3,594 to 2,091 but does not fix them, and costs skin accuracy. The Day 2 conclusion (ICP is the cause) held on the self-test only partly.
+5. Still unfixed: 800–900 failing solids even in the best runs, versus 4 in the template.
+
+Caveats: one subject; C and D change the start **and** the crop together (not separated); the eye anchor uses the GT eye centroid, i.e. extra landmark information the baseline did not have (the Day 1 baseline did use 10 landmarks); GT cerebrum/cerebellum/dura are "approx" labels.
+
+Next: separate start vs crop (C1 / C2), repeat C and D on 3–4 more cases, then test the ARAP / deformation-graph propagation against run C.
