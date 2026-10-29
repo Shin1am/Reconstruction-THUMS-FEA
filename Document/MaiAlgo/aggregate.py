@@ -7,15 +7,11 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CASE = sys.argv[1] if len(sys.argv) > 1 else 'case_02'
-# the baseline is regenerated in this folder with `python run_exp.py <case> baseline` (no flags)
-BASE_NAME = '0 baseline'
+DAY3 = os.path.join(HERE, '..', 'Day3_Case02_Baseline', 'out_case_case_02')
 
-runs = {}
+runs = {'0 baseline (Day 3)': (DAY3, os.path.join(HERE, 'out_baseline_ref', 'interior_vs_gt.csv'))}
 for d in sorted(os.listdir(HERE)):
-    if d == f'out_{CASE}_baseline':
-        runs[BASE_NAME] = (os.path.join(HERE, d), os.path.join(HERE, d, 'interior_vs_gt.csv'))
-for d in sorted(os.listdir(HERE)):
-    if d.startswith(f'out_{CASE}_') and d != f'out_{CASE}_baseline':
+    if d.startswith(f'out_{CASE}_'):
         runs[d.replace(f'out_{CASE}_', '')] = (os.path.join(HERE, d), os.path.join(HERE, d, 'interior_vs_gt.csv'))
 
 rows = []
@@ -35,6 +31,6 @@ df = pd.DataFrame(rows).round(2)
 print(df.to_string(index=False))
 df.to_csv(os.path.join(HERE, f'results_{CASE}.csv'), index=False)
 
-ref = pd.read_csv(runs[BASE_NAME][1])
+ref = pd.read_csv(runs['0 baseline (Day 3)'][1])
 sim = ref[ref.state == 'similarity (rigid CPD)'].set_index('structure')['mean_sym'].round(2)
 print('\nrigid+scale control (mean_sym):', sim.to_dict())

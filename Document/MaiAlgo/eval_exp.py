@@ -9,13 +9,11 @@ import sys
 
 import numpy as np
 import pandas as pd
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cfg import DATA_ROOT
 import pyvista as pv
 from scipy.spatial import cKDTree
 
 OUT, CASE = sys.argv[1], sys.argv[2]   # OUT = absolute run folder
-BASE = DATA_ROOT
+BASE = r'D:/2d_3d_regis dataset/New_version'
 GT = os.path.join(BASE, 'Data/HaN-Seg/GT/usable', CASE, 'stl', CASE + '_')
 
 names = {}
