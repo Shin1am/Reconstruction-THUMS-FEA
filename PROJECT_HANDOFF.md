@@ -42,7 +42,58 @@ Finite Element Analysis (FEA) to assess concussion risk.
 
 ---
 
-## CURRENT STATUS (end of last session)
+## LATEST UPDATE — Day 1–3 (2026-10-19 onward; supersedes the older status below)
+
+Work moved to a Mac (M3, 8 GB). Full write-ups: `Document/Day1_Baseline/`,
+`Document/Day2_Jacobian/`, `Document/Day3_Case02_Baseline/`. No algorithm has
+been changed yet; Days 1–3 lock, audit and re-test the **CPD + TPS skin-driven
+registration baseline** (`CPD_TPS_Skin_Only_Pipeline_v2.ipynb`, frozen copy in
+`Document/Day1_Baseline/frozen/`). The head-only extraction / node-cap task
+described under "Immediate next task" is historical; the working template is now
+`Head_V6.k` / `Head_V6.vtu` (179,676 nodes, 176,441 solids, 80,130 shells).
+
+### Day 1 — Baseline lock
+- Pipeline: centre → landmark (Kabsch) seed → rigid/affine/deformable CPD →
+  TPS → non-rigid ICP → confidence blend → TPS propagated to all nodes.
+- Result (self-test subject): Hausdorff 67.395 → 49.029 mm, mean 17.435 → 3.907 mm,
+  Chamfer 39.416 → 8.090 mm. Reproduced exactly on a fresh run (113.6 s).
+- The 49.029 mm Hausdorff is a subject→template coverage gap, not fixable by
+  deforming the template alone.
+- Open observations: matched landmarks look X-mirrored (RAS vs LPS); the Kabsch
+  "residual got worse" is partly a metric artifact. Neither is confirmed.
+
+### Day 2 — Jacobian check and ablations
+- Old `k_mesh_qa.py` over-flags (7,334 / 7,117 "inverted"). Per-corner Jacobian
+  check: template **4** failing solids, baseline registered **742** (739 caused
+  by the warp), 99% in the four skin parts.
+- Ablations: removing the skin-node overwrite changes nothing (A1: 741);
+  **Stage 6 non-rigid ICP is the cause** (A3 ICP-only: 869 new failures; A2 TPS
+  only: 0). Cost of dropping ICP: skin mean error 3.9 → 7.7 mm.
+- Not yet tested: why ICP breaks the thin skin layers; brain/skull overlap needs
+  a separate distance check.
+
+### Day 3 — Frozen baseline on a real subject (HaN-Seg GT, case_02)
+- Same registration stages, I/O adapted (axis map THUMS→LPS, automatic shoulder
+  crop, 3,000-point sample of `case_02_skin_surface.stl`). `run_case.py legacy`
+  reproduces Day 1 exactly.
+- Skin fit: mean 3.51 mm, Hausdorff 52.33 mm.
+- Interior vs GT (mm, baseline registered): skull outer 10.9, skull inner 11.8,
+  brain 11.7, eyes 2.4. Only the eyes clearly improve over a similarity-only fit;
+  every interior structure is 30–60% too tall (z-extent ratio 1.30–1.64).
+- Mesh validity: failing solids 4 → **3,594** (Day 1 self-test: 742), worst in
+  cerebellum grey matter, skin, occipital. Similarity-only control has 0 new
+  failures, so the frame change is not the cause.
+- First suspect: the neck-cut level (free parameter) stretching the head vertically.
+
+### Next steps (candidates, not yet started)
+1. Sweep the neck-cut level on case_02 and re-measure z-extent ratio and failures.
+2. Isolate why ICP breaks thin skin layers (smoothing / displacement limits).
+3. Resolve the landmark X-mirror question and re-check the Kabsch seed.
+4. Add a brain/skull overlap distance check alongside the Jacobian check.
+
+---
+
+## EARLIER STATUS (before Day 1; kept for history)
 
 ### What we accomplished
 1. Confirmed THUMS AM50 V4.1 Pedestrian file structure:
@@ -112,6 +163,11 @@ Expected result: ~80–110K nodes (under 128K cap).
 
 ## FILE PATHS ON USER'S MACHINE
 
+Current (Mac): code and docs live in `~/Desktop/Reconstruction-THUMS-FEA`
+(edit here only); data is read from
+`/Volumes/Extreme SSD/2d_3d_regis dataset/New_version` and its `Data/` folder.
+
+Older Windows paths (historical):
 ```
 Base dir : C:\Mai\BME\BioDat Work\2D-3D-Mri-image\New_version\AM50 V4.1 Pedestrian\
 Master k : main_THUMS_AM50_V41.k
@@ -213,12 +269,12 @@ Alt path : D:\2d_3d_regis dataset\AM50 V4.1 Pedestrian\ (same files, different d
 | 2D → 3D kinematics | Not started (future work) |
 | 3D → Head shape reconstruction | Not started (future work) |
 | Template selection (THUMS AM50 V4.1) | ✅ Confirmed, files located |
-| Head-only extraction | 🔄 In progress — node count fix needed |
-| Mesh QA tooling | ✅ Complete (k_mesh_qa.py) |
-| Baseline solve test | ⏳ Blocked on node count fix + LS-DYNA Student install |
-| Registration algorithm (TPS/CPD/SyN) | ⏳ Not started |
-| Warp application to mesh | ⏳ Not started |
-| Post-warp QA | ⏳ Not started (k_mesh_qa.py --compare ready) |
+| Head-only extraction | 🔄 Superseded — working template is Head_V6 (179,676 nodes) |
+| Mesh QA tooling | ✅ k_mesh_qa.py (over-flags) + per-corner Jacobian check (Day 2) |
+| Baseline solve test | ⏳ Blocked on LS-DYNA Student install |
+| Registration algorithm (TPS/CPD/SyN) | 🔄 CPD+TPS baseline locked (Day 1) and run on case_02 (Day 3); SyN not compared |
+| Warp application to mesh | ✅ Baseline TPS propagation works; ICP step breaks thin skin elements |
+| Post-warp QA | 🔄 Jacobian check done; brain/skull overlap check not yet |
 | FEA solve on TSUBAME | ⏳ Blocked on advisor/access |
 
 ---
