@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-10-28
+Last updated: 2026-10-30 (section 11)
 
 ---
 
@@ -101,3 +101,150 @@ Findings:
 Caveats: one subject; C and D change the start **and** the crop together (not separated); the eye anchor uses the GT eye centroid, i.e. extra landmark information the baseline did not have (the Day 1 baseline did use 10 landmarks); GT cerebrum/cerebellum/dura are "approx" labels.
 
 Next: separate start vs crop (C1 / C2), repeat C and D on 3–4 more cases, then test the ARAP / deformation-graph propagation against run C.
+
+---
+
+## 8. Move to the G: clone; steps 1-3 (2026-10-29)
+
+**Setup.** Work now lives in the `Reconstruction-THUMS-FEA` clone on `TryAlgoMai` (merged `origin/main`, no conflicts; nothing pushed). Data root is one constant in `cfg.py` (`BIODAT_ROOT` env var, default `G:/My Drive/BioDat_Yusuke_lab`); run folders `out_*` stay here and are git-ignored. `aggregate.py` takes the baseline from `out_<case>_baseline`. `run_all.sh <case> <name> [flags]` does run + interior eval + Jacobian; `jobs.txt` is the queue used below. A fresh baseline on case_02 reproduces Day 3 exactly (3,594 failing). Venv: `C:\Users\Acer\AppData\Local\Temp\rv`. From now on new code goes into cells at the end of `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb`, not new `.py` files.
+
+### Step 1 - start vs crop (case_02)
+
+| Run | start | crop | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z | failing |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline | centroid | auto | 3.51 | 52.3 | 10.9 | 11.8 | 11.8 | 23.2 | 2.4 | 1.30 | 3,594 |
+| C1 | eyes | auto | 3.37 | 67.5 | 7.2 | 8.5 | 10.0 | 9.5 | 2.6 | 1.24 | 18,131 |
+| C2 | centroid | eyes | 3.90 | 55.1 | 9.6 | 9.2 | 9.9 | 14.9 | 8.0 | 1.17 | 797 |
+| C | eyes | eyes | 3.40 | 37.9 | 7.4 | 7.8 | 9.1 | 11.7 | 4.7 | 1.12 | 888 |
+
+Reading: both changes help, differently. The eye-anchored **start** gives most of the skull/brainstem gain; the eye-matched **crop** gives the lowest failing-solid count. Only the combination (C) is good on both. C1's 18,131 failures are unexplained (rigid CPD scale and affine SVs are identical to the baseline; only the origin differs), so failures look fragile to small start changes.
+
+### Step 2 - spread over cases (baseline / C / D; mean_sym mm; failing = failing solids)
+
+| case | run | scale | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z | failing |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 03 | baseline | 0.96 | 3.18 | 51.0 | 10.7 | 11.8 | 11.5 | 19.8 | 6.6 | 1.18 | 1,388 |
+| 03 | C | 0.98 | 3.85 | 66.7 | 10.4 | 8.2 | 9.5 | 14.0 | 51.1 | 0.99 | 2,733 |
+| 03 | D | 0.94 | 6.82 | 99.7 | 6.6 | 6.7 | 9.2 | 4.7 | 7.2 | 0.90 | 810 |
+| 05 | baseline | 0.97 | 3.34 | 59.9 | 11.4 | 11.7 | 11.3 | 22.1 | 4.1 | 1.31 | 2,557 |
+| 05 | C | 0.95 | 2.73 | 48.3 | 6.1 | 7.2 | 8.4 | 11.1 | 2.5 | 1.24 | 4,659 |
+| 05 | D | 0.08 | 10.85 | 103.5 | 23.5 | 31.8 | 41.5 | 64.4 | 16.7 | 0.63 | 87,054 |
+| 08 | baseline | 1.01 | 3.51 | 51.7 | 14.4 | 15.3 | 13.5 | 33.5 | 2.7 | 1.18 | 1,388 |
+| 08 | C | 1.00 | 3.02 | 41.9 | 8.3 | 8.0 | 8.6 | 11.3 | 3.3 | 1.03 | 990 |
+| 08 | D | 0.62 | 7.69 | 87.4 | 10.2 | 10.5 | 12.9 | 20.0 | 18.6 | 0.77 | 30,730 |
+| 12 | baseline | 1.00 | 4.14 | 63.1 | 12.2 | 10.4 | 11.2 | 14.5 | 86.6 | 1.07 | 1,148 |
+| 12 | C | 0.96 | 2.79 | 49.9 | 5.0 | 5.1 | 8.2 | 8.2 | 3.1 | 0.96 | 1,407 |
+| 12 | D | 0.41 | 6.50 | 109.2 | 16.3 | 16.8 | 17.9 | 43.3 | 17.0 | 0.74 | 59,169 |
+
+case_02 (re-run here): C as in step 1; D 3.13 / 82.5 / 5.8 / 6.1 / 9.4 / 9.4 / 1.7 / 0.79 / 822. Full per-case tables: `results_case_*.csv`.
+
+Reading:
+1. **C beats the baseline on skull, brain and brainstem in all 5 cases** (skull ~11-14 -> 5-10 mm, brainstem 14-33 -> 8-14 mm), except case_03 where the skull-outer gain is small and the eye error jumps to 51 mm.
+2. **Failing solids do not follow**: C lowers them on case_02 and case_08, raises them on case_03 (x2), case_05 (x1.8) and case_12 (x1.2). Mesh validity is not solved by a better start.
+3. **D (CPD w=0.2) is not safe**: the template collapses (rigid scale 0.08-0.62) on 3 of 4 new cases, even from the eye-anchored start. Do not use w>0 without a scale constraint on the rigid stage. D only works on case_02/case_03.
+4. Baseline eyes error is erratic (case_12: 86.6 mm), a sign of a wrong rigid start in the baseline.
+
+### Step 3 - skin-driven ARAP propagation (case_02, on top of run C)
+
+Method (notebook cells): keep run C's final skin nodes as fixed boundary; rest shape = template after one global affine fit to the skin; edge-graph ARAP (uniform-ish 1/length weights, hex 12 edges, 30 local-global iterations, initial guess = C's TPS interior); nodes not connected to the skin through the mesh (eyes, 4,886 nodes) keep the run's coordinates.
+
+| Run | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z | failing |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| C (TPS interior) | 3.40 | 37.9 | 7.40 | 7.76 | 9.07 | 11.70 | 4.69 | 1.12 | 888 |
+| C + ARAP | 3.40 | 37.9 | 7.34 | 7.30 | 8.42 | 9.85 | 4.69 | 1.09 | 820 |
+
+Reading: ARAP is a small gain over TPS on the interior (brain -0.65 mm, stem -1.9 mm, skull-inner -0.5 mm; failing 888 -> 820) and moves solid nodes by 7.8 mm on average. It does not touch the real bottleneck: 798 of the 815 newly failing elements touch the skin nodes that the pipeline overwrites with the ICP/blend positions, and ARAP holds those fixed. Volume ratios of valid elements stay 0.72-1.37 (1%-99%).
+
+Caveats: ARAP tested on one case only; the first ARAP attempt left the eyes 762 mm away until the unreachable-node rule was added (fixed). Proximal/Tikhonov term and a robust (Welsch) boundary loss from the survey are not implemented yet.
+
+### Next
+1. Fix the boundary: smooth or relax the overwritten skin nodes (e.g. ARAP with soft skin constraints, or ICP residual smoothed through thickness) and re-measure failing solids.
+2. ARAP on case_03/05/08/12; add `prox > 0` and compare.
+3. Understand C1's 18k failures and case_03's eye error (51 mm).
+
+---
+
+## 9. Notebook rewrite and research-plan mapping (2026-10-30)
+
+**Notebook.** `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb` was rewritten from the first cell: 23 cells (3 MB -> 24 KB), one step per cell, short titles only; all explanations moved to `MaiAlgo_Notebook_Guide.md`. It uses the HaN-Seg subject and the G: data root, has the CPD fixes as switches (`INIT`, `CROP`, `CPD_W`, `USE_ICP`), and includes the interior-vs-GT check, the Jacobian check, ARAP and the results table as cells. The old landmark / SAM3D cells are removed (original kept in `CPD_TPS_Skin_Only_Pipeline_v2.ipynb`).
+
+**Verification.** A full pass of the notebook cells on case_02 (`INIT='eyes', CROP='eyes'`, run name `C_nb`) reproduces the script run C exactly, and its ARAP stage reproduces `C_eyes_arap`:
+
+| Run | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | failing |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| C (script) | 3.40 | 37.85 | 7.40 | 7.76 | 9.07 | 11.70 | 4.69 | 888 |
+| C_nb (notebook) | 3.40 | 37.85 | 7.40 | 7.76 | 9.07 | 11.70 | 4.69 | 888 |
+| C + ARAP (script) | 3.40 | 37.85 | 7.34 | 7.30 | 8.42 | 9.85 | 4.69 | 820 |
+| C_nb + ARAP (notebook) | 3.40 | 37.85 | 7.34 | 7.30 | 8.42 | 9.85 | 4.69 | 820 |
+
+Environment: conda env `2d_3d_regis` (Python 3.10) lacked only `pycpd`; installed `pycpd 2.0.0` (pip has nothing newer for 3.10; the numbers above come from the temporary venv with pycpd 2.5.4, so a run in the conda env may differ slightly).
+
+**Mapping to the research plan (Stage 1 / C1 / C2 / C3).** Naming warning: the run labels "C1" and "C2" in section 8 step 1 mean *start* and *crop* splits, not the plan's stages C1/C2.
+- Everything in this log so far is the plan's **C2** setup: only the subject skin drives the registration, the GT interior is used for scoring only. (One deviation from strict C2: the eye-anchored start uses the GT eye centroid.) The numbers in sections 7-8 are therefore C2 numbers.
+- **C1** (complete head model, best case) is not done. Proposed design: a separate notebook `02_C1_full_head_registration_baseline.ipynb`; same CPD/TPS/ARAP stack but driven by all GT surfaces (skin, outer/inner skull table, brain, brainstem, eyes), each THUMS structure matched to its own GT structure, scored with the same interior and Jacobian cells. Fit and score on the same surfaces gives a ceiling, not a prediction error; add a hold-out variant (e.g. fit skin + skull, score brain) as a middle point.
+- **C3** (SAM 3D skin as input) and **Stage 1** (SAM 3D vs CT skin) are not started.
+
+### Next
+1. Build C1 as above; decide whether to rename the current notebook to the C2 notebook and drop the GT-eye anchor so C2 is strictly skin-only.
+2. ARAP boundary fix (relax overwritten skin nodes) and ARAP on the other four cases.
+3. C1 start-effect puzzle (18k failing) and case_03 eye error.
+
+---
+
+## 10. Research plan status (Stage 1 / C1 / C2 / C3) and hand-over to another PC (2026-10-30)
+
+### 10.1 Plan (from the research workflow) and status
+
+Goal: separate the error of the 2D-to-3D external reconstruction from the error of the FE registration algorithm. Planned notebooks: `01_validate_2D_to_3D_reconstruction.ipynb`, `02_C1_full_head_registration_baseline.ipynb`, `03_C2_external_only_CT_registration.ipynb`, `04_C3_reconstructed_head_registration.ipynb`.
+
+| Stage | Input to the algorithm | Compared with | Status |
+|---|---|---|---|
+| 1 | SAM 3D mesh from a 2D photo | skin surface from the same subject's CT/MRI | **Not started.** Needs a dataset with photo + CT/MRI of the same subject (HaN-Seg has CT/MRI only, no photos). |
+| C1 | complete 3D head (all GT surfaces: skin, outer/inner skull table, brain, brainstem, eyes, ...) | GT structures; ceiling for C2/C3 | **Not started.** Design below. |
+| C2 | external-only skin from CT/MRI (GT interior hidden) | GT interior, and the C1 baseline | **Done for the algorithm on 5 cases** (sections 7-9). Current notebook = C2. One deviation to remove: the eye-anchored start uses the GT eye centroid. |
+| C3 | external-only skin reconstructed by SAM 3D | GT interior, and C1 | **Not started.** Needs Stage 1 output. |
+
+Decision rule from the plan: C3 good -> pipeline works; C2 good but C3 poor -> reconstruction is the weak part; both poor -> the registration algorithm or its inputs need work.
+
+### 10.2 C1 design (proposed, not built)
+
+1. New notebook `02_C1_full_head_registration_baseline.ipynb` with the same cells as the current notebook, except the driving data.
+2. Driving data: for every THUMS structure take the matching GT surface (skin <-> `skin_surface`, outer/inner skull parts <-> `outer_table_surface` / `inner_table_surface`, cerebrum + cerebellum <-> `brain`, stem parts <-> `brainstem_OAR`, eyes <-> `eyes_OAR`; other GT surfaces listed in `Data/HaN-Seg/GT/README.md`). Fit a single warp (CPD+TPS on the stacked, structure-labelled point sets, or per-structure CPD followed by one TPS), then ARAP for the remaining interior.
+3. Scoring: same interior-vs-GT and Jacobian cells as C2 so the numbers are directly comparable.
+4. Caveat: fit and score on the same surfaces gives a ceiling (how well the model can deform), not a prediction error. Add a hold-out variant (fit skin + skull, score brain) as a middle point between C1 and C2.
+5. Template-to-GT correspondence needs care: GT "brain" excludes the stem; GT cerebrum/cerebellum/dura/falx/tentorium are "approx" (derived, not expert-labelled).
+
+### 10.3 C2 clean-up still to do
+
+- Remove the GT-eye anchor (use a skin-only start, e.g. centroid start with the eye-matched crop replaced by something skin-only such as a chin / vertex / nose-tip based crop) so C2 is strictly external-only; re-measure.
+- Boundary fix for failing solids (798 of 815 newly failing touch the overwritten skin nodes); ARAP on case_03/05/08/12; understand the 18k failures of "eyes start + auto crop" (section 8, step 1) and the 51 mm eye error on case_03; CPD `w > 0` only with a scale constraint.
+- Optional: rename the current notebook to `03_C2_external_only_CT_registration.ipynb`.
+
+### 10.4 Moving to another PC - checklist
+
+1. `git clone https://github.com/Shin1am/Reconstruction-THUMS-FEA.git`, then `git checkout TryAlgoMai` (all work is there; `main` has other contributors' PRs and was merged into this branch). Pull before starting.
+2. Data is not in git. Needed from Google Drive `BioDat_Yusuke_lab/Data`: `mesh_model/Head_V6.vtu`, `Ls_dyna_model/Head_V6.k`, `HaN-Seg/GT/usable/<case>/stl/*.stl` (40 usable cases; QA in `HaN-Seg/GT/qa_summary.csv`). Point the code at it with the environment variable `BIODAT_ROOT` (folder that contains `Data/`); default is `G:/My Drive/BioDat_Yusuke_lab`. The notebook cell 0 reads `DATA_ROOT`; the scripts read `Document/MaiAlgo/cfg.py`. Check the Drive files open (sync can be offline/slow) before a long run.
+3. Python: conda env with numpy, scipy, pandas, pyvista, matplotlib, ipykernel, `pycpd` (2.0.0 via pip on Python 3.10; 2.5.4 on 3.12 was used for the logged numbers). Notebook kernel name expected: `2d_3d_regis`. Set `PYTHONUTF8=1` for the scripts on Windows.
+4. Open `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb`, set `CASE`, `NAME`, switches in cell 0, run top to bottom (about 10 min per case). Presets: baseline = `INIT='centroid', CROP='auto', CPD_W=0`; run C = `INIT='eyes', CROP='eyes'`; D = C + `CPD_W=0.2`.
+5. Run outputs `Document/MaiAlgo/out_<case>_<name>/` are git-ignored and are NOT in the repo; regenerate them (the results CSVs and this log hold the numbers). Batch of the five-case study: the 14 runs listed in `jobs.txt`, run with `run_all.sh` (script versions of the same steps).
+6. Do not edit `Document/Day1_Baseline`, `Day2_Jacobian`, `Day3_Case02_Baseline`. New work and notes go in `Document/MaiAlgo/`; update this log after each experiment.
+7. Git quirks seen on the D: / G: machines: if git reports "dubious ownership", pass `-c safe.directory=...` per command instead of changing global config. In the working tree of the first PC the old `Code/ipynb/*` notebooks show as deleted (a manual move into `Code/notebook/`); that was never committed.
+8. Open items for the other PC: build C1 (10.2), make C2 strictly skin-only (10.3), find a photo+CT dataset for Stage 1 and C3.
+
+---
+
+## 11. Making C1 and C2 different and valuable (discussion, 2026-10-30; nothing implemented)
+
+**Problem.** The current code drives the registration with the skin only. Run through it, "C1" would give the same numbers as C2. C1 only means something if the algorithm can also take the internal structures as input. Open question for the user: is C1 (a) an oracle where the same warp also sees the internal structures (recommended: gives a ceiling for C2/C3, but is not a deployable algorithm) or (b) the same skin-only algorithm on a clean full model (then C1 and C2 are one experiment)? To be decided; this section assumes (a).
+
+**What must stay identical between C1 and C2:** template, warp family and regularisation (CPD -> TPS -> ARAP), start alignment (no GT-derived anchor in either; the current GT-eye anchor must go), scoring (interior vs GT + Jacobians). Suggested code shape: one `register(template, targets)` where `targets` maps structure name to points; C1 passes all structures, C2 passes only the skin. Tune hyper-parameters once, not per condition.
+
+**Ideas, in suggested order**
+1. **Information ladder.** Same warp, increasing observations: skin only (C2) -> + outer skull -> + both skull tables -> + brain -> everything (C1). Error per rung shows which internal structure is worth measuring or predicting; C1 and C2 become the two ends of a curve. The "fit skin + skull, score brain" rung is a true held-out test.
+2. **Learned skin -> interior prior (main contribution).** Run C1 on all 40 usable HaN-Seg cases; every output is the THUMS head warped to that subject with identical topology. Build a statistical model (e.g. PCA of node displacements). C2 predicts the model coefficients from the skin alone (ridge / PLS), tested leave-one-subject-out; C3 uses the same predictor with a SAM 3D skin. Error split: C1 residual = what the model cannot represent; C2 - C1 = what the skin cannot tell; C3 - C2 = reconstruction error. Build the model in warp space and finish with ARAP so elements stay valid (warping alone leaves about 800 failing solids, section 8).
+3. **Structural priors for C2.** Skin-to-skull soft-tissue thickness maps learned from the 40 subjects, brain nested inside the inner skull with a CSF gap, no surface crossing. Barely active in C1, informative in C2.
+4. **Uncertainty.** Sample the regression posterior to get several plausible interiors and a per-region spread, so FE users know where the predicted interior can be trusted.
+
+**Cautions.** Idea 2 needs a clean C1 on all 40 cases first. 40 cases is the full sample, so use leave-one-out and expect no separate final test set. GT cerebrum / cerebellum / dura / falx / tentorium are "approx" labels, which limits how far the brain-side error can be trusted.
+
+**Suggested next steps:** settle the (a)/(b) question; make C2 strictly skin-only; build `register(template, targets)` and the ladder (idea 1) on case_02 and the four other cases; then C1 on all 40 cases as input to idea 2.

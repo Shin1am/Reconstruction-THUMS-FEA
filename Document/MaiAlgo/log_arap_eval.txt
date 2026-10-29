@@ -1,0 +1,17 @@
+{'skull_outer': 8, 'skull_inner': 8, 'brain': 8, 'brainstem': 4, 'eyes': 44}
+                 state   structure  mean_T2G  mean_G2T  mean_sym   hd95  centroid_offset  extent_ratio_z
+  init (axis map only) skull_outer     10.88     11.77     11.33  28.81            35.04            1.02
+  init (axis map only) skull_inner     11.66     11.59     11.63  28.56            29.33            0.96
+  init (axis map only)       brain     14.36     10.22     12.29  33.55            26.40            0.92
+  init (axis map only)   brainstem      9.21     11.32     10.26  24.22            21.10            0.94
+  init (axis map only)        eyes      2.36      1.20      1.78   5.32             2.97            1.07
+similarity (rigid CPD) skull_outer     10.09     12.81     11.45  32.13             8.32            1.06
+similarity (rigid CPD) skull_inner     10.41     11.03     10.72  27.71            14.28            0.99
+similarity (rigid CPD)       brain     12.88      8.31     10.59  30.63            15.86            0.95
+similarity (rigid CPD)   brainstem      8.50     14.06     11.28  28.91            26.64            0.97
+similarity (rigid CPD)        eyes     25.83     23.16     24.50  37.90            38.98            1.15
+   baseline registered skull_outer      6.76      7.94      7.35  27.16             8.14            1.17
+   baseline registered skull_inner      7.67      6.94      7.30  26.17            13.57            1.12
+   baseline registered       brain     11.30      5.53      8.42  31.28            14.50            1.09
+   baseline registered   brainstem      7.60     12.14      9.87  25.82            26.29            1.09
+   baseline registered        eyes    772.39    752.18    762.29 822.25           786.88            2.99

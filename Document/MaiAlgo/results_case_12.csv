@@ -1,0 +1,4 @@
+run,rigid_scale,skin_mean,skin_hd,skull_out,skull_in,brain,stem,eyes,brain_zext,failing,newly_failing
+0 baseline,1.0,4.14,63.12,12.24,10.36,11.23,14.46,86.63,1.07,1148,1147
+C_eyes,0.96,2.79,49.9,5.01,5.12,8.24,8.22,3.06,0.96,1407,1404
+D_eyes_w0.2,0.41,6.5,109.19,16.25,16.79,17.87,43.27,17.02,0.74,59169,59166

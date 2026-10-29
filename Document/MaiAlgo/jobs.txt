@@ -1,0 +1,14 @@
+case_02 C_eyes --init eyes --crop eyes
+case_02 D_eyes_w0.2 --init eyes --crop eyes --w 0.2
+case_03 baseline
+case_03 C_eyes --init eyes --crop eyes
+case_03 D_eyes_w0.2 --init eyes --crop eyes --w 0.2
+case_05 baseline
+case_05 C_eyes --init eyes --crop eyes
+case_05 D_eyes_w0.2 --init eyes --crop eyes --w 0.2
+case_08 baseline
+case_08 C_eyes --init eyes --crop eyes
+case_08 D_eyes_w0.2 --init eyes --crop eyes --w 0.2
+case_12 baseline
+case_12 C_eyes --init eyes --crop eyes
+case_12 D_eyes_w0.2 --init eyes --crop eyes --w 0.2
