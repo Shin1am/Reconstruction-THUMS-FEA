@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-10-28
+Last updated: 2026-10-29 (section 8)
 
 ---
 
@@ -101,3 +101,63 @@ Findings:
 Caveats: one subject; C and D change the start **and** the crop together (not separated); the eye anchor uses the GT eye centroid, i.e. extra landmark information the baseline did not have (the Day 1 baseline did use 10 landmarks); GT cerebrum/cerebellum/dura are "approx" labels.
 
 Next: separate start vs crop (C1 / C2), repeat C and D on 3–4 more cases, then test the ARAP / deformation-graph propagation against run C.
+
+---
+
+## 8. Move to the G: clone; steps 1-3 (2026-10-29)
+
+**Setup.** Work now lives in the `Reconstruction-THUMS-FEA` clone on `TryAlgoMai` (merged `origin/main`, no conflicts; nothing pushed). Data root is one constant in `cfg.py` (`BIODAT_ROOT` env var, default `G:/My Drive/BioDat_Yusuke_lab`); run folders `out_*` stay here and are git-ignored. `aggregate.py` takes the baseline from `out_<case>_baseline`. `run_all.sh <case> <name> [flags]` does run + interior eval + Jacobian; `jobs.txt` is the queue used below. A fresh baseline on case_02 reproduces Day 3 exactly (3,594 failing). Venv: `C:\Users\Acer\AppData\Local\Temp\rv`. From now on new code goes into cells at the end of `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb`, not new `.py` files.
+
+### Step 1 - start vs crop (case_02)
+
+| Run | start | crop | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z | failing |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline | centroid | auto | 3.51 | 52.3 | 10.9 | 11.8 | 11.8 | 23.2 | 2.4 | 1.30 | 3,594 |
+| C1 | eyes | auto | 3.37 | 67.5 | 7.2 | 8.5 | 10.0 | 9.5 | 2.6 | 1.24 | 18,131 |
+| C2 | centroid | eyes | 3.90 | 55.1 | 9.6 | 9.2 | 9.9 | 14.9 | 8.0 | 1.17 | 797 |
+| C | eyes | eyes | 3.40 | 37.9 | 7.4 | 7.8 | 9.1 | 11.7 | 4.7 | 1.12 | 888 |
+
+Reading: both changes help, differently. The eye-anchored **start** gives most of the skull/brainstem gain; the eye-matched **crop** gives the lowest failing-solid count. Only the combination (C) is good on both. C1's 18,131 failures are unexplained (rigid CPD scale and affine SVs are identical to the baseline; only the origin differs), so failures look fragile to small start changes.
+
+### Step 2 - spread over cases (baseline / C / D; mean_sym mm; failing = failing solids)
+
+| case | run | scale | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z | failing |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 03 | baseline | 0.96 | 3.18 | 51.0 | 10.7 | 11.8 | 11.5 | 19.8 | 6.6 | 1.18 | 1,388 |
+| 03 | C | 0.98 | 3.85 | 66.7 | 10.4 | 8.2 | 9.5 | 14.0 | 51.1 | 0.99 | 2,733 |
+| 03 | D | 0.94 | 6.82 | 99.7 | 6.6 | 6.7 | 9.2 | 4.7 | 7.2 | 0.90 | 810 |
+| 05 | baseline | 0.97 | 3.34 | 59.9 | 11.4 | 11.7 | 11.3 | 22.1 | 4.1 | 1.31 | 2,557 |
+| 05 | C | 0.95 | 2.73 | 48.3 | 6.1 | 7.2 | 8.4 | 11.1 | 2.5 | 1.24 | 4,659 |
+| 05 | D | 0.08 | 10.85 | 103.5 | 23.5 | 31.8 | 41.5 | 64.4 | 16.7 | 0.63 | 87,054 |
+| 08 | baseline | 1.01 | 3.51 | 51.7 | 14.4 | 15.3 | 13.5 | 33.5 | 2.7 | 1.18 | 1,388 |
+| 08 | C | 1.00 | 3.02 | 41.9 | 8.3 | 8.0 | 8.6 | 11.3 | 3.3 | 1.03 | 990 |
+| 08 | D | 0.62 | 7.69 | 87.4 | 10.2 | 10.5 | 12.9 | 20.0 | 18.6 | 0.77 | 30,730 |
+| 12 | baseline | 1.00 | 4.14 | 63.1 | 12.2 | 10.4 | 11.2 | 14.5 | 86.6 | 1.07 | 1,148 |
+| 12 | C | 0.96 | 2.79 | 49.9 | 5.0 | 5.1 | 8.2 | 8.2 | 3.1 | 0.96 | 1,407 |
+| 12 | D | 0.41 | 6.50 | 109.2 | 16.3 | 16.8 | 17.9 | 43.3 | 17.0 | 0.74 | 59,169 |
+
+case_02 (re-run here): C as in step 1; D 3.13 / 82.5 / 5.8 / 6.1 / 9.4 / 9.4 / 1.7 / 0.79 / 822. Full per-case tables: `results_case_*.csv`.
+
+Reading:
+1. **C beats the baseline on skull, brain and brainstem in all 5 cases** (skull ~11-14 -> 5-10 mm, brainstem 14-33 -> 8-14 mm), except case_03 where the skull-outer gain is small and the eye error jumps to 51 mm.
+2. **Failing solids do not follow**: C lowers them on case_02 and case_08, raises them on case_03 (x2), case_05 (x1.8) and case_12 (x1.2). Mesh validity is not solved by a better start.
+3. **D (CPD w=0.2) is not safe**: the template collapses (rigid scale 0.08-0.62) on 3 of 4 new cases, even from the eye-anchored start. Do not use w>0 without a scale constraint on the rigid stage. D only works on case_02/case_03.
+4. Baseline eyes error is erratic (case_12: 86.6 mm), a sign of a wrong rigid start in the baseline.
+
+### Step 3 - skin-driven ARAP propagation (case_02, on top of run C)
+
+Method (notebook cells): keep run C's final skin nodes as fixed boundary; rest shape = template after one global affine fit to the skin; edge-graph ARAP (uniform-ish 1/length weights, hex 12 edges, 30 local-global iterations, initial guess = C's TPS interior); nodes not connected to the skin through the mesh (eyes, 4,886 nodes) keep the run's coordinates.
+
+| Run | skin mean | skin Haus. | skull out | skull in | brain | stem | eyes | brain z | failing |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| C (TPS interior) | 3.40 | 37.9 | 7.40 | 7.76 | 9.07 | 11.70 | 4.69 | 1.12 | 888 |
+| C + ARAP | 3.40 | 37.9 | 7.34 | 7.30 | 8.42 | 9.85 | 4.69 | 1.09 | 820 |
+
+Reading: ARAP is a small gain over TPS on the interior (brain -0.65 mm, stem -1.9 mm, skull-inner -0.5 mm; failing 888 -> 820) and moves solid nodes by 7.8 mm on average. It does not touch the real bottleneck: 798 of the 815 newly failing elements touch the skin nodes that the pipeline overwrites with the ICP/blend positions, and ARAP holds those fixed. Volume ratios of valid elements stay 0.72-1.37 (1%-99%).
+
+Caveats: ARAP tested on one case only; the first ARAP attempt left the eyes 762 mm away until the unreachable-node rule was added (fixed). Proximal/Tikhonov term and a robust (Welsch) boundary loss from the survey are not implemented yet.
+
+### Next
+1. Fix the boundary: smooth or relax the overwritten skin nodes (e.g. ARAP with soft skin constraints, or ICP residual smoothed through thickness) and re-measure failing solids.
+2. ARAP on case_03/05/08/12; add `prox > 0` and compare.
+3. Understand C1's 18k failures and case_03's eye error (51 mm).

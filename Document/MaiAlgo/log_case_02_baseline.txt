@@ -1,0 +1,151 @@
+Template: 179,676 pts; skin PIDs [88000221, 88000222, 88000223, 88000229, 88000230, 88000231]; skin surface 6,182 pts
+[load_template] 4.22s
+Subject skin STL: 40,146 pts -> shoulder crop z >= -925: 36,109 pts
+Subject point set: (3000, 3)
+[load_subject] 2.88s
+[stage0_center] 0.0s
+[stage0.5b_seed] 0.0s
+[stage0.5_fps] 0.46s
+Rigid scale 1.0375, t [ 0.93 19.52 21.25]
+[stage2_rigid_cpd] 22.35s
+Affine SV raw [1.237 1.    0.803] -> clamped [1.237 1.    0.803]
+[stage3_affine_cpd] 23.03s
+[stage4_deformable_cpd] 486.09s
+[stage5_tps] 1.84s
+[stage6_icp] 0.15s
+blend: kept 2361, reverted 21 / 6182
+[stage6.5_blend] 0.02s
+                       stage   mean  median    rms    max  chamfer  hausdorff
+                   0. Center 16.436  11.581 21.392 71.121   32.518     71.121
+            1. PCA (skipped) 16.436  11.581 21.392 71.121   32.518     71.121
+                2. Rigid CPD  9.685   7.466 12.211 47.802   19.761     65.946
+               3. Affine CPD  7.871   6.790  9.319 46.291   15.908     53.259
+            4. Non-rigid CPD  7.847   6.763  9.293 46.291   15.839     52.528
+      5. TPS (dense surface)  7.453   6.610  8.569 46.291   14.870     52.528
+            6. Non-rigid ICP  3.066   2.653  4.225 46.291    7.091     49.342
+6.5 Confidence blend (final)  3.508   3.166  4.184 33.210    8.047     52.327
+Wrote C:\Mai\BME\BioDat Work\Yusuke_work\Reconstruction-THUMS-FEA\Document\MaiAlgo\out_case_02_baseline\Head_V6_registered.vtu
+[stage5b_write] 54.43s
+done 595.6 s
+{'skull_outer': 8, 'skull_inner': 8, 'brain': 8, 'brainstem': 4, 'eyes': 44}
+                 state   structure  mean_T2G  mean_G2T  mean_sym  hd95  centroid_offset  extent_ratio_z
+  init (axis map only) skull_outer     23.43     23.57     23.50 49.08            34.14            1.02
+  init (axis map only) skull_inner     22.46     22.25     22.35 46.94            40.21            0.96
+  init (axis map only)       brain     19.40     17.95     18.67 45.62            42.98            0.92
+  init (axis map only)   brainstem     23.48     31.22     27.35 49.32            51.27            0.94
+  init (axis map only)        eyes     54.05     51.68     52.86 66.70            68.20            1.07
+similarity (rigid CPD) skull_outer     12.92     14.96     13.94 34.17            15.04            1.07
+similarity (rigid CPD) skull_inner     13.26     13.48     13.37 30.57            21.54            1.01
+similarity (rigid CPD)       brain     14.24     10.03     12.13 30.16            22.93            0.98
+similarity (rigid CPD)   brainstem     11.15     18.36     14.75 34.32            32.94            0.97
+similarity (rigid CPD)        eyes     25.81     23.22     24.52 37.94            39.08            1.21
+   baseline registered skull_outer     12.07      9.81     10.94 46.10            17.80            1.38
+   baseline registered skull_inner     13.96      9.67     11.81 47.48            25.84            1.33
+   baseline registered       brain     15.70      7.88     11.79 43.33            30.00            1.30
+   baseline registered   brainstem     19.50     26.86     23.18 43.48            45.45            1.15
+   baseline registered        eyes      3.22      1.56      2.39  8.31             2.99            1.64
+176,441 solids | nodes 179,676
+hex                            163684
+tet (collapsed hex)              8669
+wedge/other (collapsed hex)      4088
+max node displacement (registered - template): 1550.55
+elements with no valid corner: 0
+registered                           ok  degenerate (zero corner)  twisted (mixed signs)  reversed (all corners negative)
+template                                                                                                                 
+ok                               172847                         0                   1991                             1599
+degenerate (zero corner)              0                         0                      0                                0
+twisted (mixed signs)                 0                         0                      4                                0
+reversed (all corners negative)       0                         0                      0                                0
+
+failing in template     : 4  (0.002%)
+failing in registered   : 3,594  (2.037%)
+newly failing (warp)    : 3,590
+fixed by the warp       : 0
+any corner changed sign : 3,591
+
+failing by element kind (template -> registered):
+                             template  registered  newly   total
+kind                                                            
+hex                                 2        3534   3532  163684
+tet (collapsed hex)                 0           4      4    8669
+wedge/other (collapsed hex)         2          56     54    4088
+top 15 parts by failing elements in the registered mesh:
+     pid                      name  elements  fail_template  fail_registered  newly_failing  fixed  pct_fail_template  pct_fail_registered
+88000103  Gray_Matter_Cerebellum_R      9396              0              725            725      0                0.0                  7.7
+88000123  Gray_Matter_Cerebellum_L      9396              0              582            582      0                0.0                  6.2
+88000171            head_skin_left      2686              0              569            569      0                0.0                 21.2
+88000168           head_skin_right      2686              0              559            559      0                0.0                 20.8
+88000011               occipital_r      1161              0              160            160      0                0.0                 13.8
+88000062               occipital_l      1161              0              132            132      0                0.0                 11.4
+88000107          CSF_Cerebellum_R      1222              0              127            127      0                0.0                 10.4
+88000254         CSF_Cerebellum2_R      4618              0              120            120      0                0.0                  2.6
+88000127          CSF_Cerebellum_L      1222              0              111            111      0                0.0                  9.1
+88000255         CSF_Cerebellum2_L      4618              0              105            105      0                0.0                  2.3
+88000102 White_Matter_Cerebellum_R      1860              0               70             70      0                0.0                  3.8
+88000170            face_skin_left       487              0               61             61      0                0.0                 12.5
+88000167           face_skin_right       487              0               57             57      0                0.0                 11.7
+88000052                 frontal_l       789              0               43             43      0                0.0                  5.4
+88000001                 frontal_r       789              0               41             41      0                0.0                  5.2
+
+top 10 parts by NEWLY failing elements:
+     pid                     name  elements  fail_template  fail_registered  newly_failing  fixed  pct_fail_template  pct_fail_registered
+88000103 Gray_Matter_Cerebellum_R      9396              0              725            725      0                0.0                  7.7
+88000123 Gray_Matter_Cerebellum_L      9396              0              582            582      0                0.0                  6.2
+88000171           head_skin_left      2686              0              569            569      0                0.0                 21.2
+88000168          head_skin_right      2686              0              559            559      0                0.0                 20.8
+88000011              occipital_r      1161              0              160            160      0                0.0                 13.8
+88000062              occipital_l      1161              0              132            132      0                0.0                 11.4
+88000107         CSF_Cerebellum_R      1222              0              127            127      0                0.0                 10.4
+88000254        CSF_Cerebellum2_R      4618              0              120            120      0                0.0                  2.6
+88000127         CSF_Cerebellum_L      1222              0              111            111      0                0.0                  9.1
+88000255        CSF_Cerebellum2_L      4618              0              105            105      0                0.0                  2.3
+
+parts with >50% reversed elements in the template: 0
+parts with any failing element: template 4, registered 32 of 83
+element volume ratio registered/template (elements valid in both):
+  1%, 5%, 50%, 95%, 99% = [0.208 0.442 1.014 1.795 2.432]
+  compressed below 0.1x: 467   below 0.5x: 12,082   stretched above 2x: 5,403   above 10x: 5
+
+min scaled Jacobian quantiles (all elements)   1%    5%    median
+  template  : [0.244 0.457 0.918]
+  registered: [-0.25   0.215  0.737]
+elements with 0 < min scaled Jacobian < 0.1 (valid but poor): template 164, registered 1,380
+{
+  "solid_elements": 176441,
+  "element_kinds": {
+    "hex": 163684,
+    "tet (collapsed hex)": 8669,
+    "wedge/other (collapsed hex)": 4088
+  },
+  "failing_template": 4,
+  "failing_registered": 3594,
+  "newly_failing": 3590,
+  "fixed_by_warp": 0,
+  "any_corner_sign_change": 3591,
+  "template_states": {
+    "ok": 176437,
+    "twisted (mixed signs)": 4
+  },
+  "registered_states": {
+    "ok": 172847,
+    "twisted (mixed signs)": 1995,
+    "reversed (all corners negative)": 1599
+  },
+  "volume_ratio_quantiles_1_5_50_95_99": [
+    0.20844559727300493,
+    0.44205243827695867,
+    1.0140966389939816,
+    1.794865122500751,
+    2.4320721046043556
+  ]
+}
+overwritten skin nodes: 6,182
+                              elements  newly_failing  pct_newly_failing
+overwritten_nodes_in_element                                            
+0                               170081           2342               1.38
+3                                  410             45              10.98
+4                                 5950           1203              20.22
+
+newly failing elements touching >=1 overwritten node: 1248 of 3590
+mean node displacement: overwritten skin nodes 1496.9 mm, all other nodes 1503.2 mm
+finished case_02 baseline

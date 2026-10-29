@@ -1,0 +1,8 @@
+affine fit residual on skin: mean 6.60 mm; singular values [1.138 1.034 0.892]
+179,676 nodes, 537,514 edges, weights=inv_len
+iter  0  energy 5.1257e+04  max step 843.541 mm
+iter  5  energy 4.0549e+04  max step 2.575 mm
+iter 10  energy 4.0344e+04  max step 3.612 mm
+iter 15  energy 4.0321e+04  max step 4.680 mm
+iter 19  energy 4.0314e+04  max step 3.958 mm
+mean |ARAP - run| over free nodes 30.44 mm, max 845.26; total 414s

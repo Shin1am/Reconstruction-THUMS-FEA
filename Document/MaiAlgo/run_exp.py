@@ -20,6 +20,8 @@ import time
 
 import numpy as np
 import pandas as pd
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cfg import DATA_ROOT
 import pyvista as pv
 from scipy.interpolate import RBFInterpolator
 from scipy.spatial import cKDTree
@@ -38,7 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(HERE, f'out_{CASE}_{A.name}')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-BASE_DIR = r'D:/2d_3d_regis dataset/New_version'
+BASE_DIR = DATA_ROOT
 TEMPLATE_K = os.path.join(BASE_DIR, 'Data/Ls_dyna_model/Head_V6.k')
 TEMPLATE_VTU = os.path.join(BASE_DIR, 'Data/mesh_model/Head_V6.vtu')
 FALLBACK_SUBJECT_FILE = os.path.join(BASE_DIR, 'Data/mesh_model/ImageToStl.com_head_voxels_transform_2.vtu')
