@@ -22,10 +22,13 @@ import pyvista as pv
 matplotlib.use("Agg") if "ipykernel" not in sys.modules else None
 import matplotlib.pyplot as plt
 
-ROOT = Path("D:/2d_3d_regis dataset/New_version")
-OUT = Path(os.environ.get("JAC_OUT", ROOT / "Document" / "Day2_Jacobian"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cfg import DATA_ROOT, REPO
+
+ROOT = Path(DATA_ROOT)
+OUT = Path(os.environ.get("JAC_OUT", Path(REPO) / "Document" / "MaiAlgo" / "out_jacobian"))
 OUT.mkdir(parents=True, exist_ok=True)
-sys.path.insert(0, str(ROOT / "Code" / "python"))
+sys.path.insert(0, str(Path(REPO) / "Code" / "python"))
 from k_mesh_qa import parse_k_file
 
 TEMPLATE_K = ROOT / "Data/Ls_dyna_model/Head_V6.k"
