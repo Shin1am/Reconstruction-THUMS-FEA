@@ -26,13 +26,13 @@ Results and findings are in `MaiAlgo_Progress.md`. Run outputs go to `Document/M
 |---|---|---|
 | `CASE` | `case_01` ... `case_42` | Usable HaN-Seg case. |
 | `NAME` | any string | Output folder suffix. Use `baseline` for the reference run of a case. |
-| `INIT` | `centroid` / `eyes` | `eyes` anchors both clouds on their eye centroids (the GT eye centroid is extra landmark information the original baseline did not use). |
-| `CROP` | `auto` / `eyes` | `auto` raises the subject cut until the remaining width is <= 110 mm half-width. `eyes` cuts the subject the same distance below the eyes as the template skin ends below the template eyes. |
+| `INIT` | `centroid` / `skinlm` / `eyes` | Start alignment. `centroid` centres both clouds on their centroids. `skinlm` anchors on the midpoint of two skin-only landmarks (vertex = highest point, nose tip = most anterior point). `eyes` anchors on the eye centroids and uses GT eyes, so it is **not** C2-strict. |
+| `CROP` | `nose` / `vertex` / `auto` / `eyes` | Subject crop. `nose` (default) cuts the subject the same distance below the nose tip as the template skin ends below its own nose tip (skin-only analogue of the eye crop). `vertex` cuts both clouds at the same height below the vertex (near no-op: both heads span about 250 mm). `auto` raises the cut until the half-width is <= 110 mm. `eyes` uses GT eyes (not C2-strict). |
 | `CPD_W` | 0 ... 1 | CPD outlier weight. 0 = baseline. 0.2 collapses the template on most cases (see progress log section 8). |
 | `USE_ICP` | bool | Stage 5 ICP on or off. |
 | `ARAP_ITERS`, `ARAP_PROX` | int, float | Local-global iterations; proximal term (Tikhonov) pulling free nodes towards the previous iterate. |
 
-Run presets: baseline = `INIT='centroid', CROP='auto', CPD_W=0`; run C = `INIT='eyes', CROP='eyes', CPD_W=0`; run D = run C with `CPD_W=0.2`.
+Run presets: baseline = `INIT='centroid', CROP='auto'`; run C = `INIT='eyes', CROP='eyes'` (uses GT eyes); run D = run C with `CPD_W=0.2`; **G2 (C2-strict, skin only) = `INIT='skinlm', CROP='nose'`**; G1 = `INIT='centroid', CROP='nose'`. The same switches can be set from environment variables (`MAI_CASE`, `MAI_NAME`, `MAI_INIT`, `MAI_CROP`, `MAI_W`, `MAI_ICP`, `MAI_ARAP`) for batch runs.
 
 ## ARAP details
 
@@ -41,6 +41,7 @@ Run presets: baseline = `INIT='centroid', CROP='auto', CPD_W=0`; run C = `INIT='
 - Graph: unique edges of the hex (12) and shell quad (4) elements; collapsed hexes give self edges that are dropped. Weight = 1 / rest edge length.
 - Local step: closest rotation per node by SVD of the edge covariance; global step: sparse Laplacian solve, factorised once.
 - Nodes in a graph component with no skin node (the 4,886 eye nodes) cannot be driven and keep the run's coordinates.
+- Boundary variants (`ARAP_CONFIGS`, tag -> (alpha, smooth_k, smooth_iters)): `''` keeps the run's skin; `_a05` shrinks the ICP/blend residual to 0.5 toward the TPS skin; `_sm` smooths the skin displacement (relative to the affine rest shape) over its 30 nearest skin neighbours, 3 times. The sparse factorisation is shared by all variants, so each extra variant costs one solve. Output folders: `out_<case>_<name>_arap`, `_arap_a05`, `_arap_sm`. The skin numbers of these folders are recomputed from the actual boundary used.
 - Not implemented yet: robust (Welsch / Geman-McClure) boundary loss, soft skin constraints.
 
 ## Notes

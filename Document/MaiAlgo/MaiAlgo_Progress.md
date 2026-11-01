@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-01 (section 12)
+Last updated: 2026-11-01 (section 13)
 
 ---
 
@@ -269,3 +269,64 @@ Decision rule from the plan: C3 good -> pipeline works; C2 good but C3 poor -> r
 **Risks.** Only 40 cases (few reliable modes, regression toward the mean; the mean-shape control shows it); "approx" GT labels limit brain-side trust; C1 quality sets the ceiling; a predicted field can still fold elements, so the ARAP finish and failing-solid count are reported at every stage.
 
 **Open questions.** (1) Model all nodes or only key-structure surface nodes (surface-only is far smaller; ARAP fills the volume)? (2) Do Phase 0 first (recommended, avoids re-running C1) or build Phase 1 on the current code?
+
+---
+
+## 13. Phase 0 results: skin-only C2 start and ARAP skin boundary (2026-11-01)
+
+**Housekeeping.** `TryAlgoMai` fast-forwarded to `Maialgo` 6ccbab3; a `main` merge by another PC had reverted the G:-path script edits, restored in 6ba43f0. Notebook changes: new switches `INIT = centroid | skinlm | eyes`, `CROP = nose | vertex | auto | eyes` (env-var overridable for batch runs), faster ARAP (sparse incidence products instead of `np.add.at`; one sparse LU shared by all boundary variants), and boundary variants. Details in `MaiAlgo_Notebook_Guide.md`. mm = symmetric mean distance to GT; "fail" = failing solid elements (template has 4).
+
+### 13.1 Removing the GT-eye anchor (C2-strict start)
+
+| Variant | start | crop | result on case_02 / case_03 |
+|---|---|---|---|
+| E1 | centroid | vertex height | skull 15.8 / 20.2, fail 4,175 / 32,718 (worse than baseline) |
+| E2 | vertex + nose-tip landmarks | vertex height | skull 14.8 / 14.7, fail 12,188 / 37,073 (worse) |
+| G1 | centroid | nose tip | skull 10.1 / 11.3, about the baseline |
+| **G2** | **vertex + nose-tip landmarks** | **nose tip** | **skull 8.9 / 7.1**, close to or better than run C |
+
+Reasons: both heads span about 250 mm vertex-to-scan-bottom (template 252 mm, subjects 249-251 mm), so a vertex-height crop removes almost nothing and the neck below the face still disagrees. What made run C work was cutting the subject at a facial landmark; the nose tip (about 30 mm below the eyes) is the skin-only equivalent (cut within 6 mm of the eye-based cut on case_02). The skin-landmark start puts the eye centroids 15-27 mm apart before CPD, against 60-80 mm for the centroid start. **G2 uses no GT-derived information** and is the C2-strict reference from here on.
+
+### 13.2 G2 against baseline and run C (5 cases, before ARAP)
+
+| case | run | skin mean | skull out | skull in | brain | stem | eyes | fail |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 02 | baseline | 3.51 | 10.9 | 11.8 | 11.8 | 23.2 | 2.4 | 3,594 |
+| 02 | C (GT eyes) | 3.40 | 7.4 | 7.8 | 9.1 | 11.7 | 4.7 | 888 |
+| 02 | **G2** | 3.49 | 8.9 | 8.1 | 8.9 | 12.2 | 7.9 | 738 |
+| 03 | baseline | 3.18 | 10.7 | 11.8 | 11.5 | 19.8 | 6.6 | 1,388 |
+| 03 | C | 3.85 | 10.4 | 8.2 | 9.5 | 14.0 | 51.1 | 2,733 |
+| 03 | **G2** | 3.01 | 7.1 | 7.2 | 8.9 | 7.6 | 6.0 | 11,095 |
+| 05 | baseline | 3.34 | 11.4 | 11.7 | 11.3 | 22.1 | 4.1 | 2,557 |
+| 05 | C | 2.73 | 6.1 | 7.2 | 8.4 | 11.1 | 2.5 | 4,659 |
+| 05 | **G2** | 2.86 | 5.7 | 5.8 | 7.5 | 7.1 | 2.7 | 913 |
+| 08 | baseline | 3.51 | 14.4 | 15.3 | 13.5 | 33.5 | 2.7 | 1,388 |
+| 08 | C | 3.02 | 8.3 | 8.0 | 8.6 | 11.3 | 3.3 | 990 |
+| 08 | **G2** | 3.27 | 8.8 | 7.7 | 8.7 | 9.5 | 7.0 | 739 |
+| 12 | baseline | 4.14 | 12.2 | 10.4 | 11.2 | 14.5 | 86.6 | 1,148 |
+| 12 | C | 2.79 | 5.0 | 5.1 | 8.2 | 8.2 | 3.1 | 1,407 |
+| 12 | **G2** | 3.25 | 5.4 | 5.4 | 7.8 | 9.3 | 4.8 | 870 |
+
+G2 beats the baseline on skull, brain and brainstem in all five cases (skull 5-9 mm against 11-14 mm) and matches run C without any GT-derived start. Its failing-solid counts are below the baseline's in four of five cases (case_03 is the exception: 11,095). The eye error is larger than run C's in some cases (case_02: 7.9 against 4.7).
+
+### 13.3 ARAP skin-boundary fix (G2 start; `arap` = full skin residual, `a05` = ICP/blend residual halved toward the TPS skin, `sm` = skin displacement smoothed over 30 neighbours x3)
+
+| case | G2 (TPS interior) | ARAP raw | ARAP a05 | ARAP sm |
+|---|---|---|---|---|
+| 02 | fail 738 · skull 8.9/8.1 · brain 8.9 · skin 3.49 | 744 · 8.6/8.2 · 8.8 · 3.49 | 34 · 9.3/8.9 · 9.3 · 4.37 | **6** · 8.7/8.2 · 8.8 · 4.22 |
+| 03 | 11,095 · 7.1/7.2 · 8.9 · 3.01 | 1,310 · 9.5/10.5 · 10.7 · 3.01 | 178 · 10.9/11.8 · 11.6 · 4.62 | **100** · 9.8/10.7 · 10.8 · 3.99 |
+| 05 | 913 · 5.7/5.8 · 7.5 · 2.86 | 946 · 5.7/5.7 · 7.5 · 2.86 | 38 · 6.2/6.4 · 7.9 · 3.66 | **5** · 5.7/5.8 · 7.5 · 3.75 |
+| 08 | 739 · 8.8/7.7 · 8.7 · 3.27 | 716 · 8.7/7.9 · 8.5 · 3.27 | 38 · 9.3/8.6 · 8.9 · 4.07 | **4** · 8.7/8.0 · 8.5 · 3.99 |
+| 12 | 870 · 5.4/5.4 · 7.8 · 3.25 | 774 · 4.5/4.1 · 7.2 · 3.25 | 54 · 5.1/4.8 · 7.6 · 3.85 | **4** · 4.5/4.2 · 7.2 · 3.95 |
+
+(Format: failing solids · skull outer/inner mm · brain mm · skin mean mm. Full tables: `results_case_*.csv`.)
+
+Findings
+1. **The failing solids come from the rough skin boundary, not from the interior solve.** Smoothing the skin displacement before ARAP takes failing solids from about 700-900 to 4-6 on four cases (and from 11,095 to 100 on case_03) at a skin cost of 0.7-1.1 mm mean, with interior accuracy unchanged. Halving the ICP residual is weaker (34-178). This resolves the open item from section 8 (798 of 815 newly failing elements touched the overwritten skin nodes).
+2. **ARAP also improves the interior slightly where TPS was already good** (case_12: skull 5.4 -> 4.5 mm, brainstem 9.3 -> 4.2 mm; case_05: brainstem 7.1 -> 6.4; case_02: brainstem 12.2 -> 11.6).
+3. **Exception: case_03.** ARAP raises the interior error (skull 7.1 -> 9.5 mm, brainstem 7.6 -> 14.9 mm) while repairing the mesh. The TPS interior there was accurate but folded the mesh (11,095 failures); the ARAP result is valid but loses that accuracy. Reason not yet understood; the affine rest shape may fit that head poorly.
+4. After the smoothing fix the mesh-validity gap is mostly closed (about 5 failing against 4 in the template), so the interior error is now the main remaining quantity for C1 / C2 comparisons.
+
+### 13.4 Status of Phase 0 and next
+Done: skin-only start and crop (G2), failing-solid fix (ARAP `sm`). Not done: the case_03 ARAP regression; GT-eye run C kept only as reference (it is not C2-strict). A C2 reference per case is now `G2 + ARAP sm` (skin mean 3.8-4.2 mm).
+Next: Phase 1 (C1 engine: `register(template, targets)` with per-structure weights, C1 on case_02 first, then all 40 cases). Before that, decide whether to spend time on case_03 (check the affine rest fit and the skin-landmark detection) since it will show up again in the 40 cases.
