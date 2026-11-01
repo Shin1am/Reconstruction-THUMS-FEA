@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-10-30 (section 11)
+Last updated: 2026-11-01 (section 12)
 
 ---
 
@@ -248,3 +248,24 @@ Decision rule from the plan: C3 good -> pipeline works; C2 good but C3 poor -> r
 **Cautions.** Idea 2 needs a clean C1 on all 40 cases first. 40 cases is the full sample, so use leave-one-out and expect no separate final test set. GT cerebrum / cerebellum / dura / falx / tentorium are "approx" labels, which limits how far the brain-side error can be trusted.
 
 **Suggested next steps:** settle the (a)/(b) question; make C2 strictly skin-only; build `register(template, targets)` and the ladder (idea 1) on case_02 and the four other cases; then C1 on all 40 cases as input to idea 2.
+
+---
+
+## 12. Decisions: C1 oracle, weighted prediction + observation, conditional-Gaussian prior (discussion, 2026-11-01; nothing implemented)
+
+**Decisions**
+1. **C1 is an oracle (option a).** The same warp also sees the subject's internal structures (skull tables, brain, brainstem, eyes). Fit and score on the same surfaces give a ceiling (can the template and warp represent this head?), not a prediction error. C2 - C1 = what the skin cannot tell; C3 - C2 = reconstruction error. Not a deployable algorithm.
+2. **One algorithm, not two.** `register(template, targets)`: the objective is a sum of one data term per structure present in `targets`, plus the regulariser (TPS -> ARAP). C1 passes all structures, C2 only the skin, ladder rungs add one at a time. Hyper-parameters, start alignment and scoring are fixed across conditions. Each structure's term is normalised by its point count so the skin is not drowned out in C1.
+3. **Prediction + observation fusion.** Interior position = weighted combination of `p_pred` (predicted from skin) and `p_obs` (observed internal structure, if present): `p = (w_pred*p_pred + w_obs*p_obs) / (w_pred + w_obs)`. `w_obs = 0` gives C2, large `w_obs` gives C1, partial data (e.g. skull but no brain) is conditioned on what exists. Preferred weights: inverse variance (prior variance from leave-one-out error; observation variance from segmentation noise, higher for the "approx" labels cerebrum / cerebellum / dura / falx / tentorium). Do not score a structure against the same observation that was fused; report held-out structures only.
+4. **Prior = conditional Gaussian on C1 warps.** Options compared for building `p_pred`: multi-atlas assembly, statistical shape model, joint conditional Gaussian, thickness regression, deep learning (needs far more than 40 cases), literature soft-tissue thickness tables, covariate regression (age / sex / head size). Chosen: conditional Gaussian; multi-atlas kept as the comparison baseline (it reuses the same C1 runs).
+
+**Plan (nothing edited yet)**
+- Phase 0, prerequisites: remove the GT-eye anchor (skin-only start, e.g. centroid + chin / vertex / nose-tip crop) and re-measure case_02 and the four other cases; fix the ARAP skin-boundary problem (relax the overwritten skin nodes) so C1 outputs are valid meshes.
+- Phase 1, C1 engine: label THUMS parts by structure; build `register(template, targets)` with per-structure normalised weights; run C1 on case_02 (check ceiling and failing solids), then on all 40 usable cases. Gate: fix bad C1 cases before they enter the model.
+- Phase 2, conditional Gaussian: per case vectors of skin (`x`) and interior (`y`) displacements after removing rigid + scale; joint Gaussian with low-rank (probabilistic) PCA; `E[y|x]` is `p_pred`, the conditional covariance gives the weight; observed structures enter as a weighted data term; finish with ARAP to restore element validity.
+- Phase 3, evaluation: leave-one-subject-out (including choice of modes and regularisation); held-out structures only (skull, brain, brainstem, eyes) plus failing solids; compare current C2 (TPS / ARAP), conditional Gaussian from skin, a mean-shape control, and the C1 ceiling; `w_obs` sweep and information ladder; check that predicted uncertainty matches real error.
+- Deliverables: C1 notebook (`02_...`) and model notebook (`03_...`) in the cell-per-step style, guide notes in `MaiAlgo_Notebook_Guide.md`, results CSVs per case and method, this log updated after each experiment.
+
+**Risks.** Only 40 cases (few reliable modes, regression toward the mean; the mean-shape control shows it); "approx" GT labels limit brain-side trust; C1 quality sets the ceiling; a predicted field can still fold elements, so the ARAP finish and failing-solid count are reported at every stage.
+
+**Open questions.** (1) Model all nodes or only key-structure surface nodes (surface-only is far smaller; ARAP fills the volume)? (2) Do Phase 0 first (recommended, avoids re-running C1) or build Phase 1 on the current code?
