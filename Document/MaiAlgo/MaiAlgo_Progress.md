@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-01 (section 13)
+Last updated: 2026-11-14 (section 14)
 
 ---
 
@@ -330,3 +330,45 @@ Findings
 ### 13.4 Status of Phase 0 and next
 Done: skin-only start and crop (G2), failing-solid fix (ARAP `sm`). Not done: the case_03 ARAP regression; GT-eye run C kept only as reference (it is not C2-strict). A C2 reference per case is now `G2 + ARAP sm` (skin mean 3.8-4.2 mm).
 Next: Phase 1 (C1 engine: `register(template, targets)` with per-structure weights, C1 on case_02 first, then all 40 cases). Before that, decide whether to spend time on case_03 (check the affine rest fit and the skin-landmark detection) since it will show up again in the 40 cases.
+
+
+## 14. Phase 1: C1 engine (2026-11-14)
+
+Notebook cells 11-12 (`register(targets, start)`) added to `CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb`; description in `MaiAlgo_Notebook_Guide.md`. Start = the G2 result of the same notebook run (skin landmarks + nose crop, CPD, TPS/ICP, skin only). Mean symmetric distance to GT (mm), failing = failing solid elements (template 4).
+
+**Dataset check.** HaN-Seg is head-and-neck cancer radiotherapy patients; the brain is normal (README only warns that tumour distortion of the neck is not checked). NMDID (CT only, no segmentations, access by committee) and Harvard-Oxford (atlas space, no subject skin) were looked at and not adopted.
+
+**Engine.** Per observed structure: nearest-GT pull (+ reverse GT-to-node pull, 25 mm clip), displacement low-passed over 20 neighbours, 1000 control nodes (brain 300), one thin-plate-spline update per iteration with per-point smoothing `lam * n_ctrl / n_used` (equal weight per structure), lam schedule stiff -> flexible, 2 inner iterations. About 40-200 s per run.
+
+### 14.1 case_02 (start G2, 8.9 / 8.1 / 8.9 / 12.2 / 7.9 mm, failing 738)
+
+| run | skull out | skull in | brain | stem | eyes | failing |
+|---|---|---|---|---|---|---|
+| all, lam 1e3..0.1, no low-pass | 2.05 | 1.18 | 3.48 | 1.29 | 1.31 | 50,734 |
+| + soft ARAP finish mu 0.3 / 3 / 30 | 2.63 / 2.15 / 2.05 | 1.72 / 1.22 / 1.18 | 4.11 / 3.56 / 3.50 | 4.68 / 1.98 / 1.37 | 2.13 / 1.52 / 1.34 | 11,677 / 25,429 / 30,540 |
+| low-pass 20, floor 10 | 2.66 | 1.39 | 3.74 | 3.43 | 2.72 | 11,981 |
+| low-pass 20, floor 1e2 | 3.09 | 1.59 | 3.95 | 4.15 | 3.16 | 5,046 |
+| low-pass 20, floor 1e3 | 4.14 | 2.49 | 4.72 | 5.07 | 3.51 | 1,061 |
+| low-pass 20, floor 1e4 | 4.39 | 3.29 | 5.53 | 6.24 | 4.16 | 742 |
+| ladder: skin only | 9.44 | 8.65 | 9.13 | 13.72 | 8.18 | 744 |
+| ladder: skin + both skull tables | 2.35 | 1.29 | 5.23 | 8.64 | 6.14 | 2,493 |
+
+### 14.2 case_05, notebook run end to end (`results_c1_case_05.csv`)
+
+| run | skull out | skull in | brain | stem | eyes | failing |
+|---|---|---|---|---|---|---|
+| c1_stiff | 2.68 | 1.72 | 3.82 | 3.93 | 0.66 | 1,116 |
+| c1_mid | 2.28 | 1.30 | 3.23 | 3.00 | 0.55 | 4,957 |
+| c1_fit | 2.07 | 1.18 | 3.12 | 2.41 | 0.51 | 13,162 |
+| l_skin | 5.74 | 5.84 | 7.46 | 6.64 | 3.07 | 926 |
+| l_skin_skull | 1.96 | 1.12 | 4.88 | 4.74 | 4.22 | 1,228 |
+
+### 14.3 Findings
+
+1. The warp family can represent both heads: with all structures observed, every structure is 1-4 mm from GT on both cases (start 8-12 mm). This is the C1 ceiling (fit and score on the same surfaces).
+2. Accuracy and mesh validity trade off through one stiffness parameter. Failures are almost all brain parts (white/grey matter, cerebellum): the template brain has folds, the GT brain surface is smoother, so a node-wise nearest pull collapses the folds. Low-passing the pull and fewer brain control points helped (50k -> 12k at the same floor); stiffer final stage gives ~1k failing (case_02 floor 1e3) at 4-5 mm brain/stem. A soft-ARAP finish did not beat this (12k-30k failing).
+3. Information ladder (case_02 / case_05): skin only leaves the brain at 9.1 / 7.5 mm; adding the skull tables brings brain to 5.2 / 4.9 mm and brainstem to 8.6 / 4.7 mm; adding brain and brainstem brings them to 3-4 mm. The skull tables carry most of the information about where the brain is, so predicting the skull from the skin is the first thing the prior has to do.
+4. Mesh-validity gate for the prior: use `c1_stiff` fields (about 1k failing) for learning; `c1_fit` is the accuracy ceiling only.
+5. Housekeeping: the temp venv `rv` was cleaned; scripts now run in the conda env `2d_3d_regis` (python 3.10, pycpd 2.0.0).
+
+Next: C1 on all 40 usable cases (about 10 min per case on this PC, mostly CPD; cell 10 about 250 s), gate the bad ones, then Phase 2 (conditional Gaussian skin -> interior displacement). Case_03 ARAP regression still open.

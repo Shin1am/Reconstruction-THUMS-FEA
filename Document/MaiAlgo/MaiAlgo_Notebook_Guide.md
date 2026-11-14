@@ -49,3 +49,12 @@ Run presets: baseline = `INIT='centroid', CROP='auto'`; run C = `INIT='eyes', CR
 - `run_exp.py`, `eval_exp.py`, `jacobian_diagnostic.py`, `aggregate.py`, `run_all.sh` in this folder are the earlier script versions of the same steps (used for the batch runs in the progress log). The notebook reproduces them.
 - Python: venv `C:\Users\Acer\AppData\Local\Temp\rv` (numpy, scipy, pandas, pyvista, pycpd 2.5.4).
 - One full pass of cells 0-9 takes roughly 10 minutes (deformable CPD about 100 s, ARAP about 5 min).
+
+## Cells 11-12: C1 engine
+
+| # | Cell | What it does |
+|---|---|---|
+| 11 | Engine | `STRUCT_IDX` maps each structure (skin, skull outer/inner, brain, brainstem, eyes) to its template surface nodes; `GT_ALL` holds the GT points of the subject (skin = cropped skin). `register(targets, start, lambdas, smooth_k, n_ctrl)` runs a TPS non-rigid ICP with one data term per structure in `targets`: nearest-GT pull plus reverse GT-to-node pull (25 mm clip), displacement averaged over `smooth_k` neighbours, `n_ctrl` control nodes per structure, smoothing `lam * n_ctrl / n_used` so every structure has equal total weight. `lambdas` goes from stiff to flexible; the last value is the stiffness floor. |
+| 12 | Run C1 | Runs `c1_stiff` (floor 1e3, about 1k failing solids), `c1_mid` (1e2), `c1_fit` (10, most accurate, folds the brain) from the run's `coords_reg`, saves each as `out_<CASE>_<NAME>_<tag>`, scores interior vs GT + failing solids, writes `results_c1_<CASE>.csv`. `MAI_LADDER=1` adds the information-ladder runs (`l_skin`, `l_skin_skull`). C2 = `targets=['skin']`, C1 = all. |
+
+Run cells 0-8 first (they define `coords_reg`, `STRUCT`, `GT_PTS`, `save_run`, `eval_interior`, `jacobian_check`). The ARAP cell (9) is not needed for C1. Env vars for a batch run: `MAI_CASE`, `MAI_NAME`, `MAI_INIT=skinlm`, `MAI_CROP=nose`, `MAI_ARAP=0`, `MAI_LADDER`.
