@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-14 (section 14)
+Last updated: 2026-11-17 (section 14)
 
 ---
 
@@ -372,3 +372,32 @@ Notebook cells 11-12 (`register(targets, start)`) added to `CPD_TPS_Skin_Only_Pi
 5. Housekeeping: the temp venv `rv` was cleaned; scripts now run in the conda env `2d_3d_regis` (python 3.10, pycpd 2.0.0).
 
 Next: C1 on all 40 usable cases (about 10 min per case on this PC, mostly CPD; cell 10 about 250 s), gate the bad ones, then Phase 2 (conditional Gaussian skin -> interior displacement). Case_03 ARAP regression still open.
+
+
+### 14.4 Skin roughness found in the first C1 version, and the fix (2026-11-17)
+
+Slicer showed jagged skin in the skin+skull and C1 outputs. Measured skin roughness (distance of each skin node to the mean of its neighbours), case_02:
+
+| result | mean | nodes > 5 mm | max |
+|---|---|---|---|
+| original template | 0.62 | 19 | 6.8 |
+| skin only (G2 + ARAP `_sm`) | 0.67 | 18 | 7.5 |
+| first C1 versions | 2.26-2.52 | 332-504 | 21-48 |
+| start skin of the engine (`coords_reg`, TPS + ICP + blend) | 2.14 | 241 | 13.2 |
+
+The roughness was already in the start skin: the TPS/ICP/blend skin is rough, and the skin-only result looked smooth only because the ARAP boundary smoothing was applied to it. (My first reading, that the C1 pulls created it, was wrong.)
+
+Tests on case_02 (mean symmetric distance to GT, mm):
+
+| variant | skull out | skull in | brain | stem | eyes | failing | roughness | skin mean |
+|---|---|---|---|---|---|---|---|---|
+| old stiff (skin driven by the engine) | 4.14 | 2.49 | 4.72 | 5.07 | 3.51 | 1,061 | 2.26 | 1.53 |
+| + no pulls near the neck cut | 4.12 | 2.49 | 4.72 | 5.07 | 3.51 | 1,059 | 2.28 | 1.69 |
+| + edge-graph diffusion of the field, 10 / 30 steps | 4.02 / 4.15 | 2.93 / 3.12 | 4.83 / 5.06 | 6.02 / 6.90 | 3.89 / 4.41 | 4,699 / 4,203 | 2.15 / 2.14 | 2.48 / 3.23 |
+| diffusion 30 steps, floor 1e2 | 3.50 | 2.38 | 4.50 | 6.94 | 3.79 | 11,814 | 2.14 | 3.31 |
+| **smoothed skin held fixed, interior only, stiff (`c1_stiff`)** | 3.17 | 2.19 | 4.58 | 5.04 | 3.55 | **303** | **0.67** | 2.14 |
+| **same, floor 1e2 (`c1_mid`)** | 2.69 | 1.48 | 3.60 | 4.10 | 3.25 | 3,076 | 0.67 | 2.14 |
+
+Ladder with the same setup (`results_c1_case_02.csv`): `l_skin` 8.88 / 8.10 / 8.92 / 12.21 / 7.92 mm, 130 failing; `l_skin_skull` 2.44 / 1.39 / 5.34 / 7.95 / 6.46, 471 failing.
+
+Findings: (1) the smooth deformation that helps is the skin smoothing, not diffusion of the whole field (diffusion made interior and validity worse); (2) holding the smoothed skin and fitting only the interior gives the template's own roughness, about 3.5 times fewer failing solids and a better interior than the old C1 stiff; (3) the cost is skin accuracy, mean 2.14 mm (HD95 11.2) instead of 1.5. Notebook cells 11-12 now implement this. The case_05 numbers in 14.2 are from the first engine version (skin driven by the engine) and need a re-run.
