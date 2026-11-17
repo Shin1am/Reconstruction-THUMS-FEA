@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-17 (section 15)
+Last updated: 2026-11-17 (section 16)
 
 ---
 
@@ -450,3 +450,13 @@ Without the five pose outliers (cases 07, 27, 30, 34, 41; 35 cases) the chain gi
 **Caveats.** The prediction targets are the C1 fits, not the raw GT, so the scores include the C1 residual (oracle TRE 4.2 mm); GT brain-side surfaces are approximate; brain surface distance is inflated by internal template surfaces, use the brain Dice; eye Dice is hull-based per eye; linear model, 39 training cases per fold, training included the five pose outliers (a training set without them was not run); one run of leave-one-out, no uncertainty weighting yet; the 25 mm / 0.8-1.25 settings of C1 were tuned on case_02.
 
 **Kept** (`Document/MaiAlgo/results_40case/`): four overlap pictures (best1 case_23, best2 case_16, worst1 case_34, worst2 case_30; skin only, prediction and C1 oracle against GT), `summary_means.csv`, `per_case_scores.csv`, `direct_prediction_errors.csv`, and four Slicer scenes (`slicer_scenes/*.mrb`, about 25 MB each, not committed): ground truth (blue), prediction (orange), skin only (green), C1 oracle (purple), skull inner, brain, brainstem and eyes as separate models, ground truth and prediction visible by default. **Deleted:** the temporary per-case results (`out_tmp_batch`, the per-case working folders). Code: notebook cells 11-14 (the batch step is cells 0-12 per case, see the guide).
+
+## 16. Head-tipped start fixed (2026-11-17)
+
+**Cause.** In the five pose outliers (07, 27, 30, 34, 41) the head is tipped back with the chin forward, so the most anterior skin point (the start landmark and the nose crop) is the chin, 157-194 mm below the vertex (normal heads: 95-139 mm). The start and the crop were wrong, the rigid CPD ended 14-60 deg away, and skin-only TRE was 41-53 mm (normal about 19). A pose search by trimmed rigid ICP on the skin was tried and dropped: a round cranium leaves the pitch free (its pose differed from the skull pose by 17-50 deg in all cases).
+
+**Fix (cells 2, 6, 8).** `NOSE_WIN` (env `MAI_NOSEWIN`, default 145 mm): the subject nose tip is the most anterior point within 145 mm below the vertex. Skin only; only the five outliers get a different nose (their nose lands 83-106 mm below the vertex; case_07 at 83 mm is the highest, check it by eye).
+
+**Result** (mean symmetric distance, mm; old -> new; 3 controls unchanged to 0.1-0.2 mm). Skin only, skull outer: 07 12.2 -> 4.2, 27 10.1 -> 7.5, 30 15.6 -> 7.4, 34 19.3 -> 9.1, 41 14.3 -> 5.4; eyes 78-90 -> 3-13 (34 still 13.1). C1 oracle, skull outer / inner: 07 3.3/2.7 -> 2.7/1.6, 27 3.4/2.2 -> 2.9/1.8, 30 3.4/3.1 -> 2.5/1.8, 34 5.1/5.3 -> 3.1/2.0, 41 3.4/3.1 -> 2.6/1.7; eyes 0.6-0.7 everywhere. Controls 02, 05, 23 identical. Failing solids not compared yet.
+
+**Not done.** The other 35 cases were not re-run (their nose is unchanged by construction); the skin -> skull -> brain model and its leave-one-out scores (section 15) still contain the old outlier fits and must be re-run to update. A run of 4 cases needs `OMP_NUM_THREADS=3` (and MKL/OPENBLAS) per process; without it four processes slowed each other to about 50 min per case.
