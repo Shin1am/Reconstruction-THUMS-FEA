@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-01 (section 12)
+Last updated: 2026-11-17 (section 14)
 
 ---
 
@@ -269,3 +269,155 @@ Decision rule from the plan: C3 good -> pipeline works; C2 good but C3 poor -> r
 **Risks.** Only 40 cases (few reliable modes, regression toward the mean; the mean-shape control shows it); "approx" GT labels limit brain-side trust; C1 quality sets the ceiling; a predicted field can still fold elements, so the ARAP finish and failing-solid count are reported at every stage.
 
 **Open questions.** (1) Model all nodes or only key-structure surface nodes (surface-only is far smaller; ARAP fills the volume)? (2) Do Phase 0 first (recommended, avoids re-running C1) or build Phase 1 on the current code?
+
+---
+
+## 13. Phase 0 results: skin-only C2 start and ARAP skin boundary (2026-11-01)
+
+**Housekeeping.** `TryAlgoMai` fast-forwarded to `Maialgo` 6ccbab3; a `main` merge by another PC had reverted the G:-path script edits, restored in 6ba43f0. Notebook changes: new switches `INIT = centroid | skinlm | eyes`, `CROP = nose | vertex | auto | eyes` (env-var overridable for batch runs), faster ARAP (sparse incidence products instead of `np.add.at`; one sparse LU shared by all boundary variants), and boundary variants. Details in `MaiAlgo_Notebook_Guide.md`. mm = symmetric mean distance to GT; "fail" = failing solid elements (template has 4).
+
+### 13.1 Removing the GT-eye anchor (C2-strict start)
+
+| Variant | start | crop | result on case_02 / case_03 |
+|---|---|---|---|
+| E1 | centroid | vertex height | skull 15.8 / 20.2, fail 4,175 / 32,718 (worse than baseline) |
+| E2 | vertex + nose-tip landmarks | vertex height | skull 14.8 / 14.7, fail 12,188 / 37,073 (worse) |
+| G1 | centroid | nose tip | skull 10.1 / 11.3, about the baseline |
+| **G2** | **vertex + nose-tip landmarks** | **nose tip** | **skull 8.9 / 7.1**, close to or better than run C |
+
+Reasons: both heads span about 250 mm vertex-to-scan-bottom (template 252 mm, subjects 249-251 mm), so a vertex-height crop removes almost nothing and the neck below the face still disagrees. What made run C work was cutting the subject at a facial landmark; the nose tip (about 30 mm below the eyes) is the skin-only equivalent (cut within 6 mm of the eye-based cut on case_02). The skin-landmark start puts the eye centroids 15-27 mm apart before CPD, against 60-80 mm for the centroid start. **G2 uses no GT-derived information** and is the C2-strict reference from here on.
+
+### 13.2 G2 against baseline and run C (5 cases, before ARAP)
+
+| case | run | skin mean | skull out | skull in | brain | stem | eyes | fail |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 02 | baseline | 3.51 | 10.9 | 11.8 | 11.8 | 23.2 | 2.4 | 3,594 |
+| 02 | C (GT eyes) | 3.40 | 7.4 | 7.8 | 9.1 | 11.7 | 4.7 | 888 |
+| 02 | **G2** | 3.49 | 8.9 | 8.1 | 8.9 | 12.2 | 7.9 | 738 |
+| 03 | baseline | 3.18 | 10.7 | 11.8 | 11.5 | 19.8 | 6.6 | 1,388 |
+| 03 | C | 3.85 | 10.4 | 8.2 | 9.5 | 14.0 | 51.1 | 2,733 |
+| 03 | **G2** | 3.01 | 7.1 | 7.2 | 8.9 | 7.6 | 6.0 | 11,095 |
+| 05 | baseline | 3.34 | 11.4 | 11.7 | 11.3 | 22.1 | 4.1 | 2,557 |
+| 05 | C | 2.73 | 6.1 | 7.2 | 8.4 | 11.1 | 2.5 | 4,659 |
+| 05 | **G2** | 2.86 | 5.7 | 5.8 | 7.5 | 7.1 | 2.7 | 913 |
+| 08 | baseline | 3.51 | 14.4 | 15.3 | 13.5 | 33.5 | 2.7 | 1,388 |
+| 08 | C | 3.02 | 8.3 | 8.0 | 8.6 | 11.3 | 3.3 | 990 |
+| 08 | **G2** | 3.27 | 8.8 | 7.7 | 8.7 | 9.5 | 7.0 | 739 |
+| 12 | baseline | 4.14 | 12.2 | 10.4 | 11.2 | 14.5 | 86.6 | 1,148 |
+| 12 | C | 2.79 | 5.0 | 5.1 | 8.2 | 8.2 | 3.1 | 1,407 |
+| 12 | **G2** | 3.25 | 5.4 | 5.4 | 7.8 | 9.3 | 4.8 | 870 |
+
+G2 beats the baseline on skull, brain and brainstem in all five cases (skull 5-9 mm against 11-14 mm) and matches run C without any GT-derived start. Its failing-solid counts are below the baseline's in four of five cases (case_03 is the exception: 11,095). The eye error is larger than run C's in some cases (case_02: 7.9 against 4.7).
+
+### 13.3 ARAP skin-boundary fix (G2 start; `arap` = full skin residual, `a05` = ICP/blend residual halved toward the TPS skin, `sm` = skin displacement smoothed over 30 neighbours x3)
+
+| case | G2 (TPS interior) | ARAP raw | ARAP a05 | ARAP sm |
+|---|---|---|---|---|
+| 02 | fail 738 · skull 8.9/8.1 · brain 8.9 · skin 3.49 | 744 · 8.6/8.2 · 8.8 · 3.49 | 34 · 9.3/8.9 · 9.3 · 4.37 | **6** · 8.7/8.2 · 8.8 · 4.22 |
+| 03 | 11,095 · 7.1/7.2 · 8.9 · 3.01 | 1,310 · 9.5/10.5 · 10.7 · 3.01 | 178 · 10.9/11.8 · 11.6 · 4.62 | **100** · 9.8/10.7 · 10.8 · 3.99 |
+| 05 | 913 · 5.7/5.8 · 7.5 · 2.86 | 946 · 5.7/5.7 · 7.5 · 2.86 | 38 · 6.2/6.4 · 7.9 · 3.66 | **5** · 5.7/5.8 · 7.5 · 3.75 |
+| 08 | 739 · 8.8/7.7 · 8.7 · 3.27 | 716 · 8.7/7.9 · 8.5 · 3.27 | 38 · 9.3/8.6 · 8.9 · 4.07 | **4** · 8.7/8.0 · 8.5 · 3.99 |
+| 12 | 870 · 5.4/5.4 · 7.8 · 3.25 | 774 · 4.5/4.1 · 7.2 · 3.25 | 54 · 5.1/4.8 · 7.6 · 3.85 | **4** · 4.5/4.2 · 7.2 · 3.95 |
+
+(Format: failing solids · skull outer/inner mm · brain mm · skin mean mm. Full tables: `results_case_*.csv`.)
+
+Findings
+1. **The failing solids come from the rough skin boundary, not from the interior solve.** Smoothing the skin displacement before ARAP takes failing solids from about 700-900 to 4-6 on four cases (and from 11,095 to 100 on case_03) at a skin cost of 0.7-1.1 mm mean, with interior accuracy unchanged. Halving the ICP residual is weaker (34-178). This resolves the open item from section 8 (798 of 815 newly failing elements touched the overwritten skin nodes).
+2. **ARAP also improves the interior slightly where TPS was already good** (case_12: skull 5.4 -> 4.5 mm, brainstem 9.3 -> 4.2 mm; case_05: brainstem 7.1 -> 6.4; case_02: brainstem 12.2 -> 11.6).
+3. **Exception: case_03.** ARAP raises the interior error (skull 7.1 -> 9.5 mm, brainstem 7.6 -> 14.9 mm) while repairing the mesh. The TPS interior there was accurate but folded the mesh (11,095 failures); the ARAP result is valid but loses that accuracy. Reason not yet understood; the affine rest shape may fit that head poorly.
+4. After the smoothing fix the mesh-validity gap is mostly closed (about 5 failing against 4 in the template), so the interior error is now the main remaining quantity for C1 / C2 comparisons.
+
+### 13.4 Status of Phase 0 and next
+Done: skin-only start and crop (G2), failing-solid fix (ARAP `sm`). Not done: the case_03 ARAP regression; GT-eye run C kept only as reference (it is not C2-strict). A C2 reference per case is now `G2 + ARAP sm` (skin mean 3.8-4.2 mm).
+Next: Phase 1 (C1 engine: `register(template, targets)` with per-structure weights, C1 on case_02 first, then all 40 cases). Before that, decide whether to spend time on case_03 (check the affine rest fit and the skin-landmark detection) since it will show up again in the 40 cases.
+
+
+## 14. Phase 1: C1 engine (2026-11-14)
+
+Notebook cells 11-12 (`register(targets, start)`) added to `CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb`; description in `MaiAlgo_Notebook_Guide.md`. Start = the G2 result of the same notebook run (skin landmarks + nose crop, CPD, TPS/ICP, skin only). Mean symmetric distance to GT (mm), failing = failing solid elements (template 4).
+
+**Dataset check.** HaN-Seg is head-and-neck cancer radiotherapy patients; the brain is normal (README only warns that tumour distortion of the neck is not checked). NMDID (CT only, no segmentations, access by committee) and Harvard-Oxford (atlas space, no subject skin) were looked at and not adopted.
+
+**Engine.** Per observed structure: nearest-GT pull (+ reverse GT-to-node pull, 25 mm clip), displacement low-passed over 20 neighbours, 1000 control nodes (brain 300), one thin-plate-spline update per iteration with per-point smoothing `lam * n_ctrl / n_used` (equal weight per structure), lam schedule stiff -> flexible, 2 inner iterations. About 40-200 s per run.
+
+### 14.1 case_02 (start G2, 8.9 / 8.1 / 8.9 / 12.2 / 7.9 mm, failing 738)
+
+| run | skull out | skull in | brain | stem | eyes | failing |
+|---|---|---|---|---|---|---|
+| all, lam 1e3..0.1, no low-pass | 2.05 | 1.18 | 3.48 | 1.29 | 1.31 | 50,734 |
+| + soft ARAP finish mu 0.3 / 3 / 30 | 2.63 / 2.15 / 2.05 | 1.72 / 1.22 / 1.18 | 4.11 / 3.56 / 3.50 | 4.68 / 1.98 / 1.37 | 2.13 / 1.52 / 1.34 | 11,677 / 25,429 / 30,540 |
+| low-pass 20, floor 10 | 2.66 | 1.39 | 3.74 | 3.43 | 2.72 | 11,981 |
+| low-pass 20, floor 1e2 | 3.09 | 1.59 | 3.95 | 4.15 | 3.16 | 5,046 |
+| low-pass 20, floor 1e3 | 4.14 | 2.49 | 4.72 | 5.07 | 3.51 | 1,061 |
+| low-pass 20, floor 1e4 | 4.39 | 3.29 | 5.53 | 6.24 | 4.16 | 742 |
+| ladder: skin only | 9.44 | 8.65 | 9.13 | 13.72 | 8.18 | 744 |
+| ladder: skin + both skull tables | 2.35 | 1.29 | 5.23 | 8.64 | 6.14 | 2,493 |
+
+### 14.2 case_05, notebook run end to end (`results_c1_case_05.csv`)
+
+| run | skull out | skull in | brain | stem | eyes | failing |
+|---|---|---|---|---|---|---|
+| c1_stiff | 2.68 | 1.72 | 3.82 | 3.93 | 0.66 | 1,116 |
+| c1_mid | 2.28 | 1.30 | 3.23 | 3.00 | 0.55 | 4,957 |
+| c1_fit | 2.07 | 1.18 | 3.12 | 2.41 | 0.51 | 13,162 |
+| l_skin | 5.74 | 5.84 | 7.46 | 6.64 | 3.07 | 926 |
+| l_skin_skull | 1.96 | 1.12 | 4.88 | 4.74 | 4.22 | 1,228 |
+
+### 14.3 Findings
+
+1. The warp family can represent both heads: with all structures observed, every structure is 1-4 mm from GT on both cases (start 8-12 mm). This is the C1 ceiling (fit and score on the same surfaces).
+2. Accuracy and mesh validity trade off through one stiffness parameter. Failures are almost all brain parts (white/grey matter, cerebellum): the template brain has folds, the GT brain surface is smoother, so a node-wise nearest pull collapses the folds. Low-passing the pull and fewer brain control points helped (50k -> 12k at the same floor); stiffer final stage gives ~1k failing (case_02 floor 1e3) at 4-5 mm brain/stem. A soft-ARAP finish did not beat this (12k-30k failing).
+3. Information ladder (case_02 / case_05): skin only leaves the brain at 9.1 / 7.5 mm; adding the skull tables brings brain to 5.2 / 4.9 mm and brainstem to 8.6 / 4.7 mm; adding brain and brainstem brings them to 3-4 mm. The skull tables carry most of the information about where the brain is, so predicting the skull from the skin is the first thing the prior has to do.
+4. Mesh-validity gate for the prior: use `c1_stiff` fields (about 1k failing) for learning; `c1_fit` is the accuracy ceiling only.
+5. Housekeeping: the temp venv `rv` was cleaned; scripts now run in the conda env `2d_3d_regis` (python 3.10, pycpd 2.0.0).
+
+Next: C1 on all 40 usable cases (about 10 min per case on this PC, mostly CPD; cell 10 about 250 s), gate the bad ones, then Phase 2 (conditional Gaussian skin -> interior displacement). Case_03 ARAP regression still open.
+
+
+### 14.4 Skin roughness found in the first C1 version, and the fix (2026-11-17)
+
+Slicer showed jagged skin in the skin+skull and C1 outputs. Measured skin roughness (distance of each skin node to the mean of its neighbours), case_02:
+
+| result | mean | nodes > 5 mm | max |
+|---|---|---|---|
+| original template | 0.62 | 19 | 6.8 |
+| skin only (G2 + ARAP `_sm`) | 0.67 | 18 | 7.5 |
+| first C1 versions | 2.26-2.52 | 332-504 | 21-48 |
+| start skin of the engine (`coords_reg`, TPS + ICP + blend) | 2.14 | 241 | 13.2 |
+
+The roughness was already in the start skin: the TPS/ICP/blend skin is rough, and the skin-only result looked smooth only because the ARAP boundary smoothing was applied to it. (My first reading, that the C1 pulls created it, was wrong.)
+
+Tests on case_02 (mean symmetric distance to GT, mm):
+
+| variant | skull out | skull in | brain | stem | eyes | failing | roughness | skin mean |
+|---|---|---|---|---|---|---|---|---|
+| old stiff (skin driven by the engine) | 4.14 | 2.49 | 4.72 | 5.07 | 3.51 | 1,061 | 2.26 | 1.53 |
+| + no pulls near the neck cut | 4.12 | 2.49 | 4.72 | 5.07 | 3.51 | 1,059 | 2.28 | 1.69 |
+| + edge-graph diffusion of the field, 10 / 30 steps | 4.02 / 4.15 | 2.93 / 3.12 | 4.83 / 5.06 | 6.02 / 6.90 | 3.89 / 4.41 | 4,699 / 4,203 | 2.15 / 2.14 | 2.48 / 3.23 |
+| diffusion 30 steps, floor 1e2 | 3.50 | 2.38 | 4.50 | 6.94 | 3.79 | 11,814 | 2.14 | 3.31 |
+| **smoothed skin held fixed, interior only, stiff (`c1_stiff`)** | 3.17 | 2.19 | 4.58 | 5.04 | 3.55 | **303** | **0.67** | 2.14 |
+| **same, floor 1e2 (`c1_mid`)** | 2.69 | 1.48 | 3.60 | 4.10 | 3.25 | 3,076 | 0.67 | 2.14 |
+
+Ladder with the same setup (`results_c1_case_02.csv`): `l_skin` 8.88 / 8.10 / 8.92 / 12.21 / 7.92 mm, 130 failing; `l_skin_skull` 2.44 / 1.39 / 5.34 / 7.95 / 6.46, 471 failing.
+
+Findings: (1) the smooth deformation that helps is the skin smoothing, not diffusion of the whole field (diffusion made interior and validity worse); (2) holding the smoothed skin and fitting only the interior gives the template's own roughness, about 3.5 times fewer failing solids and a better interior than the old C1 stiff; (3) the cost is skin accuracy, mean 2.14 mm (HD95 11.2) instead of 1.5. Notebook cells 11-12 now implement this. The case_05 numbers in 14.2 are from the first engine version (skin driven by the engine) and need a re-run.
+
+
+### 14.5 Brainstem and eye volume collapse (case_02, 2026-11-17)
+
+Diagnosis (case_02, C1 stiff before the fix): brainstem volume 5.0 mL (GT 20, template 15.7), only 54 of 1,682 elements inverted, i.e. real compression: height 46.6 -> 34.4 mm, centroid still 17 mm off; eyes squashed vertically (41.7 -> 21.7 mm, GT 32). Cause: nearest-point pulls collapse small structures and the stiff spline cannot correct them locally.
+
+Fix, tested one change at a time (all stiff, failing solids in brackets): per-structure affine targets for brainstem and eyes (a first version had a translation bug after clamping the scale) -> brainstem 5.0 -> 1.5 mm, volume 22.6 mL, no inverted elements, eyes 3.6 -> 0.8 mm, but failing 303 -> 1,508-1,818; similarity instead of affine: no better (2,066); untangling (Laplacian relaxation of free nodes) hardly helped (1,818 -> 1,617). The remaining failures sit 25-31 mm around the brainstem: the GT brain surface contains the brainstem (100% of GT brainstem vertices are inside it) but the template brain does not (12% of the warped brainstem nodes inside the template brain), so the brain term squeezes the cerebrum into the repositioned brainstem. Excluding the zone around the brainstem from the brain term: 10 / 15 / 20 / 25 mm -> failing 1,105 / 711 / 525 / 333, brain 5.0 / 5.2 / 5.2 / 5.3 mm. Chosen: affine targets + 25 mm exclusion (notebook cells 11-12).
+
+Final case_02 (`c1_stiff` / `c1_mid`): skull outer 2.90 / 2.45, inner 2.00 / 1.39, brain 5.31 / 4.88, brainstem 1.48 / 1.35, eyes 0.79 / 0.83 mm, failing 333 / 2,230 (template 4), skin roughness 0.67. Dice: brain 0.92 / 0.93, brainstem 0.83 / 0.84 (was 0.33), eyes 0.80 / 0.78 (hull-based per eye; the nested eye shells break an inside/outside test). Brain surface distance is inflated by internal template surfaces; skull-inner Dice not computed (open shell). Skin-only reference for the same case: brain Dice 0.79, brainstem 0.18, eyes 0.22.
+
+
+### 14.6 Remaining failing solids: skin layer fixed (case_02, 2026-11-17)
+
+Where the 333 of `c1_stiff` were: 258 touch the skin (head_skin left/right 141, face_skin 113), 75 elsewhere (temporal bones 47). The skin elements are stretched, not squeezed: scalp thickness is fine (result 6.0 mm, GT 7.2, template 6.8, nothing under 2 mm), but a through-thickness edge of 6.5 mm in the template is 36.9 mm in the result. Cause: the start's interior came from a TPS through the unsmoothed skin, while the skin put back was the smoothed one, so skin and interior disagreed by several mm at sharp features.
+
+Tried and rejected (case_02): carry the skin correction inward with a depth fade (6 / 12 / 20 / 35 mm): skull outer 4.2-7.7 mm, failing 810-3,836 (worse); skin as a zero-displacement data term (weights 1 / 5 / 25): skull outer 4.2-4.4, failing 320-303 (no real gain); Laplacian untangling on the final result: 107 -> 328 / 401 (worse).
+
+Kept: rebuild the interior of the start from the smoothed skin (one TPS through the smooth skin, smoothing 1e-3) before the engine runs. Results (stiff / mid): skull outer 2.86 / 2.40, inner 1.96 / 1.35, brain 5.14 / 4.73, brainstem 1.49 / 1.32, eyes 0.68 / 0.73 mm; failing **107 / 1,254** (was 333 / 2,230); of the 107 only 27 touch the skin. The start alone (`l_skin`) has 4 failing, like the template. Ladder with the same start: `l_skin` 9.05 / 8.35 / 8.86 / 13.04 / 7.04 mm, 4 failing; `l_skin_skull` 2.40 / 1.37 / 5.23 / 7.82 / 5.60, 163 failing.
+
+What is left in the 107: temporal bones (60) with both faces fixed by the skull targets (the GT temporal bone is thinner than the template's element thickness in places, a data conflict), face skin 27, a few small parts. Not fixable by relaxing free nodes.
