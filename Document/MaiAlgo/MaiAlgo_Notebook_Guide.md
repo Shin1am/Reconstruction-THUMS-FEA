@@ -58,3 +58,12 @@ Run presets: baseline = `INIT='centroid', CROP='auto'`; run C = `INIT='eyes', CR
 | 12 | Run C1 | The skin of `coords_reg` is smoothed (`smooth_skin`) and then held fixed: the skin is already fitted, the engine moves the interior only. Runs `c1_stiff` (floor 1e3, valid mesh) and `c1_mid` (floors 1e3, 1e2, more accurate, more failing solids), saves each as `out_<CASE>_<NAME>_<tag>`, scores interior vs GT and failing solids, writes `results_c1_<CASE>.csv`. `MAI_LADDER=1` adds `l_skin` (smooth skin + TPS interior, nothing else observed) and `l_skin_skull` (skin + both skull tables observed). C2 = `l_skin`, C1 = `c1_stiff` / `c1_mid`. |
 
 Run cells 0-8 first (they define `coords_reg`, `STRUCT`, `GT_PTS`, `save_run`, `eval_interior`, `jacobian_check`). The ARAP cell (9) is not needed for C1. Env vars for a batch run: `MAI_CASE`, `MAI_NAME`, `MAI_INIT=skinlm`, `MAI_CROP=nose`, `MAI_ARAP=0`, `MAI_LADDER`. Tried and dropped: edge-graph diffusion of the whole displacement field (worse accuracy and more failing solids, see progress log 14.4).
+
+## Cells 13-14: prediction of the interior from the skin
+
+| # | Cell | What it does |
+|---|---|---|
+| 13 | Learn and predict | Needs one folder per case in `out_tmp_batch/` (`l_skin.npy`, `c1_stiff.npy`, `skin_sm.npy`), made by running cells 0-12 for every usable case with `MAI_INIT=skinlm MAI_CROP=nose MAI_ARAP=0 MAI_C1=l_skin,c1_stiff` (about 3.5 min per case, four at a time). `build_dataset` takes fixed template nodes (skin 1,500, skull outer 1,200, inner 1,200, brain 1,500, brainstem 400, eyes 600) and aligns all cases by the skin only (generalised Procrustes). `kr_fit` is a reduced-rank ridge regression (top r shape modes plus ridge, r and ridge chosen by explicit leave-one-out refits; a closed-form shortcut was degenerate and is not used). `loo_predictions` leaves one case out, learns skin -> skull and skull -> brain, brainstem, eyes (trained on the C1 fits of the true skull), also a joint skin -> everything model and the mean shape, and returns world-frame target positions plus node errors against C1. |
+| 14 | Register | `register_corr` pulls the template nodes to the predicted positions (known correspondence) through one stiff TPS (smoothing 1e3, 2 iterations), `predicted_mesh` starts from `l_skin.npy` and puts the smooth skin back. |
+
+The cells were ported from the scripts that produced the 40-case results and checked against them (same node errors, predicted mesh identical to 0.0000 mm). They were not re-run end to end as notebook cells.

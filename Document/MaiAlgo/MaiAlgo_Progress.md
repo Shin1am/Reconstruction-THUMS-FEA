@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-17 (section 14)
+Last updated: 2026-11-17 (section 15)
 
 ---
 
@@ -421,3 +421,32 @@ Tried and rejected (case_02): carry the skin correction inward with a depth fade
 Kept: rebuild the interior of the start from the smoothed skin (one TPS through the smooth skin, smoothing 1e-3) before the engine runs. Results (stiff / mid): skull outer 2.86 / 2.40, inner 1.96 / 1.35, brain 5.14 / 4.73, brainstem 1.49 / 1.32, eyes 0.68 / 0.73 mm; failing **107 / 1,254** (was 333 / 2,230); of the 107 only 27 touch the skin. The start alone (`l_skin`) has 4 failing, like the template. Ladder with the same start: `l_skin` 9.05 / 8.35 / 8.86 / 13.04 / 7.04 mm, 4 failing; `l_skin_skull` 2.40 / 1.37 / 5.23 / 7.82 / 5.60, 163 failing.
 
 What is left in the 107: temporal bones (60) with both faces fixed by the skull targets (the GT temporal bone is thinner than the template's element thickness in places, a data conflict), face skin 27, a few small parts. Not fixable by relaxing free nodes.
+
+
+## 15. 40 cases: C1 on every case, skin -> skull -> brain model, leave-one-out registration (2026-11-17)
+
+**Run.** All 40 usable cases through cells 0-12 (skin-only start, stiff C1; about 200 s per case, four in parallel). From the C1 fits: fixed template nodes per structure, all cases aligned by their skin only (generalised Procrustes), reduced-rank ridge regression skin -> skull (stage 1) and skull -> brain, brainstem, eyes (stage 2, trained on the true skull), also joint skin -> everything and the mean shape. Leave one subject out; each prediction is registered into the template (known-correspondence pulls, one stiff TPS, smooth skin kept) and scored against the real GT. A first model selection used a closed-form leave-one-out that is degenerate for near-exact fits (it always chose the least regularised model, and chain and joint came out identical); it was replaced by explicit leave-one-out refits (ranks 12-24, ridge 0.01-0.1).
+
+**Node error of the prediction against the C1 targets (mm, leave-one-out, 40 cases).** chain: skull outer 4.91, inner 4.71, brain 4.63, brainstem 5.47, eyes 9.31; joint 4.94 / 4.73 / 4.69 / 5.62 / 9.55; mean shape 8.21 / 7.73 / 6.96 / 7.00 / 20.56. Brain, brainstem, eyes from the TRUE skull: 3.58 / 4.32 / 4.97.
+
+**Scores against the real GT after registration (mean over cases).** Mean symmetric distance in mm, TRE = mean distance of six centroid landmarks, HD95 in mm.
+
+| | skin only (C2) | mean shape | joint | **chain** | C1 oracle |
+|---|---|---|---|---|---|
+| skull outer / inner | 8.82 / 8.07 | 6.44 / 6.13 | 4.55 / 4.04 | **4.52 / 4.03** | 3.02 / 2.13 |
+| brain | 9.22 | 8.37 | 6.83 | **6.83** | 5.45 |
+| brainstem | 10.19 | 3.35 | 2.81 | **2.75** | 1.46 |
+| eyes | 14.69 | 14.47 | 5.26 | **4.92** | 0.87 |
+| TRE (6 centroids) | 18.95 | 15.03 | 8.44 | **8.28** | 4.24 |
+| Dice brain / brainstem / eyes | 0.79 / 0.21 / 0.36 | 0.82 / 0.65 / 0.25 | 0.87 / 0.69 / 0.52 | **0.87 / 0.70 / 0.52** | 0.91 / 0.84 / 0.80 |
+| HD95 skull outer / inner | 32.8 / 30.7 | 20.2 / 19.0 | 15.6 / 12.7 | **15.4 / 12.5** | 13.1 / 9.1 |
+| HD95 brainstem / eyes | 28.2 / 24.6 | 9.8 / 22.6 | 8.1 / 10.6 | **8.0 / 10.4** | 4.9 / 3.1 |
+| failing solids, mean (median) | 249 (4) | 609 (46) | 1,399 (175) | **1,548 (158)** | 2,368 (138) |
+
+Without the five pose outliers (cases 07, 27, 30, 34, 41; 35 cases) the chain gives skull 3.96 / 3.42, brain 6.47, brainstem 2.58, eyes 3.12 mm, TRE 7.16, Dice 0.88 / 0.71 / 0.56, failing 529 (C2: 8.04 / 7.38, 8.69, 9.97, 7.10, TRE 15.85, Dice 0.80 / 0.22 / 0.40; C1 oracle 2.92 / 1.96, 5.38, 1.44, 0.76, TRE 4.11, Dice 0.92 / 0.84 / 0.81). Skin mean 2.18 mm (HD95 19.3) for all methods (1.94 / 16.5 without the outliers), because the smooth skin is kept.
+
+**Findings.** (1) The prediction beats both the skin-only start and the mean shape on every structure, and in no case is it worse than the skin-only start (average of the five structure distances). (2) The skull is predicted to about 4.5 mm (from 8-9 mm), brain Dice 0.87 against 0.79; the brainstem is mostly a stable position (the mean shape already gives 3.35 mm), the eyes are the structure where the skin helps most (14.5 -> 4.9 mm). (3) Chain and joint are almost the same; the chain is slightly better for eyes and brainstem. (4) The remaining gap to the C1 oracle is about 1.5-2 mm for the skull and 0.2-0.3 Dice for brainstem and eyes. (5) The worst cases are the head-tipped pose outliers (34: 15.5 mm average, brain Dice 0.64; 30: 11.5, 0.75; 07: 10.9; 27) and case_37 (6.3, 11,299 failing solids); even their C1 oracle is poor because the nose-tip start fails there. The two best cases are 23 and 16 (3.3 mm average, brain Dice 0.90), then 31, 05, 38, 42. (6) Mesh validity is the weak point: predicted meshes fail more often than the skin-only start (median 158 against 4); several cases are large (37, 34, 30, 07).
+
+**Caveats.** The prediction targets are the C1 fits, not the raw GT, so the scores include the C1 residual (oracle TRE 4.2 mm); GT brain-side surfaces are approximate; brain surface distance is inflated by internal template surfaces, use the brain Dice; eye Dice is hull-based per eye; linear model, 39 training cases per fold, training included the five pose outliers (a training set without them was not run); one run of leave-one-out, no uncertainty weighting yet; the 25 mm / 0.8-1.25 settings of C1 were tuned on case_02.
+
+**Kept** (`Document/MaiAlgo/results_40case/`): four overlap pictures (best1 case_23, best2 case_16, worst1 case_34, worst2 case_30; skin only, prediction and C1 oracle against GT), `summary_means.csv`, `per_case_scores.csv`, `direct_prediction_errors.csv`, and four Slicer scenes (`slicer_scenes/*.mrb`, about 25 MB each, not committed): ground truth (blue), prediction (orange), skin only (green), C1 oracle (purple), skull inner, brain, brainstem and eyes as separate models, ground truth and prediction visible by default. **Deleted:** the temporary per-case results (`out_tmp_batch`, the per-case working folders). Code: notebook cells 11-14 (the batch step is cells 0-12 per case, see the guide).
