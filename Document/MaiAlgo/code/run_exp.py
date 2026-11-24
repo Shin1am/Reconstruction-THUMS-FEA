@@ -37,7 +37,7 @@ ap.add_argument('--crop', choices=['auto', 'eyes'], default='auto')
 A = ap.parse_args()
 MODE, CASE = 'case', A.case
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(HERE, f'out_{CASE}_{A.name}')
+OUTPUT_DIR = os.path.join(HERE, '..', 'output', f'out_{CASE}_{A.name}')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 BASE_DIR = DATA_ROOT

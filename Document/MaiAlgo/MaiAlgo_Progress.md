@@ -4,6 +4,18 @@ Running log for the algorithm work done with Claude. Newest entries go at the bo
 
 Last updated: 2026-11-17 (section 18)
 
+## Folder layout (reorganised 2026-11-24)
+
+```
+Document/MaiAlgo/
+  MaiAlgo_Progress.md, MaiAlgo_Notebook_Guide.md
+  code/      early experiment scripts (run_exp.py, run_all.sh, eval_exp.py, aggregate.py, jacobian_diagnostic.py, cfg.py, jobs.txt); the current pipeline is the notebook in Code/notebook/CPS_Pipeline/
+  logs/      run logs of those scripts
+  output/    experiment outputs, one out_<case>_<name>/ folder each (git-ignored): baselines and G2_skinlm_nose of cases 02/03/05/08/12, out_slicer_case_02, out_tmp_batch (per-case data of the 40-case run)
+  results/   case_csv/ (per-case tables), 40case_before_nosefix/, 40case_nosefix/ (tables, pictures, mesh quality; slicer_scenes/*.mrb are not committed)
+```
+Older entries below name paths as they were then: `out_*` folders now live in `output/`, `results_40case` is `results/40case_before_nosefix`, `results_40case_nosefix` is `results/40case_nosefix`, `results_case_NN.csv` is in `results/case_csv/`, `log_*.txt` in `logs/`. About 100 experiment output folders (X/Y/Z/S/T series, C/D eyes runs, ARAP variants, G1/G2c, temporary batch copies) were deleted on 2026-11-24; their numbers are in this log.
+
 ---
 
 ## 1. Where the project stood (from the existing markdown files)
@@ -463,7 +475,7 @@ Without the five pose outliers (cases 07, 27, 30, 34, 41; 35 cases) the chain gi
 
 ## 17. 40 cases re-run with the nose-window start (2026-11-24)
 
-**Run.** All 40 cases again (cells 0-12, `MAI_NOSEWIN=145`), model and leave-one-out registration as in section 15 (results in `results_40case_nosefix/`; section 15 files in `results_40case/` are the run before the fix). Three cases (11, 12, 13) crashed on first read and cases 10 and 14 gave wrong fits (case 14 had read a skin file of 23,349 points instead of 40,194): Google Drive reads were flaky; re-running those five gave the old values, then model and scoring were redone. A run of 4 cases needs `OMP_NUM_THREADS=3` per process.
+**Run.** All 40 cases again (cells 0-12, `MAI_NOSEWIN=145`), model and leave-one-out registration as in section 15 (results in `results/40case_nosefix/`; section 15 files in `results_40case/` are the run before the fix). Three cases (11, 12, 13) crashed on first read and cases 10 and 14 gave wrong fits (case 14 had read a skin file of 23,349 points instead of 40,194): Google Drive reads were flaky; re-running those five gave the old values, then model and scoring were redone. A run of 4 cases needs `OMP_NUM_THREADS=3` per process.
 
 **Scores, mean over 40 cases** (mm; Dice; failing = solid elements with a non-positive corner Jacobian). Section 15 value in brackets for the chain.
 
@@ -487,7 +499,7 @@ Without case_37 (see below): chain skull 3.89 / 3.34, brain 6.42, brainstem 2.47
 
 ## 18. Pictures, scenes and mesh quality of the nose-window run (2026-11-24)
 
-**Pictures and scenes** (`results_40case_nosefix/`): best 1 case_40 (five-structure average 3.21 mm), best 2 case_02 (3.26), worst 1 case_37 (23.9; the template sits about 40 deg out of place, the skin-only start fails), worst 2 case_34 (4.94); PNG per case (skin only, prediction, C1 oracle; blue = GT, orange = result) and `slicer_scenes/*.mrb` (about 24 MB each, not committed; same layout and colours as section 15; best1 reloaded and checked). The scenes in `results_40case/` are from the run before the fix.
+**Pictures and scenes** (`results/40case_nosefix/`): best 1 case_40 (five-structure average 3.21 mm), best 2 case_02 (3.26), worst 1 case_37 (23.9; the template sits about 40 deg out of place, the skin-only start fails), worst 2 case_34 (4.94); PNG per case (skin only, prediction, C1 oracle; blue = GT, orange = result) and `slicer_scenes/*.mrb` (about 24 MB each, not committed; same layout and colours as section 15; best1 reloaded and checked). The scenes in `results_40case/` are from the run before the fix.
 
 **Mesh quality of the predicted (chain) meshes** (`mesh_quality_chain.csv`; 176,441 solids; failing = a corner scaled Jacobian <= 0): the template has 4 failing and 1,076 elements below 0.2. Predicted meshes: 0 of 40 have no failing element; 6 have 10 or fewer, 25 have 100 or fewer, one (case_37) has more than 1,000 (9,454). Median 66 (0.04 % of the elements), mean 358; elements below 0.2 median 3,113 (template 1,076); 34 % of the failing elements touch a skin node. The template itself contains zero-length edges, so no time-step ratio was computed.
 

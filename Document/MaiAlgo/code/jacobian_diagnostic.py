@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cfg import DATA_ROOT, REPO
 
 ROOT = Path(DATA_ROOT)
-OUT = Path(os.environ.get("JAC_OUT", Path(REPO) / "Document" / "MaiAlgo" / "out_jacobian"))
+OUT = Path(os.environ.get("JAC_OUT", Path(REPO) / "Document" / "MaiAlgo" / "output" / "out_jacobian"))
 OUT.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(Path(REPO) / "Code" / "python"))
 from k_mesh_qa import parse_k_file

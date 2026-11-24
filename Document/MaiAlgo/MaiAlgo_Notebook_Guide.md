@@ -1,5 +1,17 @@
 # MaiAlgo notebook guide
 
+
+## Folder layout (reorganised 2026-11-24)
+
+```
+Document/MaiAlgo/
+  MaiAlgo_Progress.md, MaiAlgo_Notebook_Guide.md
+  code/      early experiment scripts (run_exp.py, run_all.sh, eval_exp.py, aggregate.py, jacobian_diagnostic.py, cfg.py, jobs.txt); the current pipeline is the notebook in Code/notebook/CPS_Pipeline/
+  logs/      run logs of those scripts
+  output/    experiment outputs, one out_<case>_<name>/ folder each (git-ignored): baselines and G2_skinlm_nose of cases 02/03/05/08/12, out_slicer_case_02, out_tmp_batch (per-case data of the 40-case run)
+  results/   case_csv/ (per-case tables), 40case_before_nosefix/, 40case_nosefix/ (tables, pictures, mesh quality; slicer_scenes/*.mrb are not committed)
+```
+Older entries below name paths as they were then: `out_*` folders now live in `output/`, `results_40case` is `results/40case_before_nosefix`, `results_40case_nosefix` is `results/40case_nosefix`, `results_case_NN.csv` is in `results/case_csv/`, `log_*.txt` in `logs/`. About 100 experiment output folders (X/Y/Z/S/T series, C/D eyes runs, ARAP variants, G1/G2c, temporary batch copies) were deleted on 2026-11-24; their numbers are in this log.
 Notebook: `Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb` (rewritten 2026-10-30; the original v2 notebook is untouched in `CPD_TPS_Skin_Only_Pipeline_v2.ipynb`). Run the cells top to bottom; every cell is one step. All explanations live here, the notebook keeps only short titles.
 
 Results and findings are in `MaiAlgo_Progress.md`. Run outputs go to `Document/MaiAlgo/out_<CASE>_<NAME>/` (git-ignored).
@@ -64,7 +76,7 @@ Run cells 0-8 first (they define `coords_reg`, `STRUCT`, `GT_PTS`, `save_run`, `
 
 | # | Cell | What it does |
 |---|---|---|
-| 13 | Learn and predict | Needs one folder per case in `out_tmp_batch/` (`l_skin.npy`, `c1_stiff.npy`, `skin_sm.npy`), made by running cells 0-12 for every usable case with `MAI_INIT=skinlm MAI_CROP=nose MAI_ARAP=0 MAI_C1=l_skin,c1_stiff` (about 3.5 min per case, four at a time). `build_dataset` takes fixed template nodes (skin 1,500, skull outer 1,200, inner 1,200, brain 1,500, brainstem 400, eyes 600) and aligns all cases by the skin only (generalised Procrustes). `kr_fit` is a reduced-rank ridge regression (top r shape modes plus ridge, r and ridge chosen by explicit leave-one-out refits; a closed-form shortcut was degenerate and is not used). `loo_predictions` leaves one case out, learns skin -> skull and skull -> brain, brainstem, eyes (trained on the C1 fits of the true skull), also a joint skin -> everything model and the mean shape, and returns world-frame target positions plus node errors against C1. |
+| 13 | Learn and predict | Needs one folder per case in `output/out_tmp_batch/` (`l_skin.npy`, `c1_stiff.npy`, `skin_sm.npy`), made by running cells 0-12 for every usable case with `MAI_INIT=skinlm MAI_CROP=nose MAI_ARAP=0 MAI_C1=l_skin,c1_stiff` (about 3.5 min per case, four at a time). `build_dataset` takes fixed template nodes (skin 1,500, skull outer 1,200, inner 1,200, brain 1,500, brainstem 400, eyes 600) and aligns all cases by the skin only (generalised Procrustes). `kr_fit` is a reduced-rank ridge regression (top r shape modes plus ridge, r and ridge chosen by explicit leave-one-out refits; a closed-form shortcut was degenerate and is not used). `loo_predictions` leaves one case out, learns skin -> skull and skull -> brain, brainstem, eyes (trained on the C1 fits of the true skull), also a joint skin -> everything model and the mean shape, and returns world-frame target positions plus node errors against C1. |
 | 14 | Register | `register_corr` pulls the template nodes to the predicted positions (known correspondence) through one stiff TPS (smoothing 1e3, 2 iterations), `predicted_mesh` starts from `l_skin.npy` and puts the smooth skin back. |
 
 The cells were ported from the scripts that produced the 40-case results and checked against them (same node errors, predicted mesh identical to 0.0000 mm). They were not re-run end to end as notebook cells.
