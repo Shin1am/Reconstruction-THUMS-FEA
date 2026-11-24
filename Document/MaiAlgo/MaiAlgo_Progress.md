@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-17 (section 16)
+Last updated: 2026-11-17 (section 17)
 
 ---
 
@@ -460,3 +460,27 @@ Without the five pose outliers (cases 07, 27, 30, 34, 41; 35 cases) the chain gi
 **Result** (mean symmetric distance, mm; old -> new; 3 controls unchanged to 0.1-0.2 mm). Skin only, skull outer: 07 12.2 -> 4.2, 27 10.1 -> 7.5, 30 15.6 -> 7.4, 34 19.3 -> 9.1, 41 14.3 -> 5.4; eyes 78-90 -> 3-13 (34 still 13.1). C1 oracle, skull outer / inner: 07 3.3/2.7 -> 2.7/1.6, 27 3.4/2.2 -> 2.9/1.8, 30 3.4/3.1 -> 2.5/1.8, 34 5.1/5.3 -> 3.1/2.0, 41 3.4/3.1 -> 2.6/1.7; eyes 0.6-0.7 everywhere. Controls 02, 05, 23 identical. Failing solids not compared yet.
 
 **Not done.** The other 35 cases were not re-run (their nose is unchanged by construction); the skin -> skull -> brain model and its leave-one-out scores (section 15) still contain the old outlier fits and must be re-run to update. A run of 4 cases needs `OMP_NUM_THREADS=3` (and MKL/OPENBLAS) per process; without it four processes slowed each other to about 50 min per case.
+
+## 17. 40 cases re-run with the nose-window start (2026-11-24)
+
+**Run.** All 40 cases again (cells 0-12, `MAI_NOSEWIN=145`), model and leave-one-out registration as in section 15 (results in `results_40case_nosefix/`; section 15 files in `results_40case/` are the run before the fix). Three cases (11, 12, 13) crashed on first read and cases 10 and 14 gave wrong fits (case 14 had read a skin file of 23,349 points instead of 40,194): Google Drive reads were flaky; re-running those five gave the old values, then model and scoring were redone. A run of 4 cases needs `OMP_NUM_THREADS=3` per process.
+
+**Scores, mean over 40 cases** (mm; Dice; failing = solid elements with a non-positive corner Jacobian). Section 15 value in brackets for the chain.
+
+| | skin only | mean shape | joint | **chain** | C1 oracle |
+|---|---|---|---|---|---|
+| skull outer / inner | 7.88 / 7.23 | 4.74 / 4.27 | 4.19 / 3.66 | **4.18 / 3.64** (4.52 / 4.03) | 2.90 / 1.94 |
+| brain | 8.61 | 7.10 | 6.67 | **6.66** (6.83) | 5.37 |
+| brainstem | 9.50 | 2.93 | 2.52 | **2.53** (2.75) | 1.43 |
+| eyes | 7.05 | 5.18 | 4.67 | **4.62** (4.92) | 0.75 |
+| TRE (6 centroids) | 15.47 | 8.82 | 7.79 | **7.73** (8.28) | 4.08 |
+| Dice brain / brainstem / eyes | 0.81 / 0.25 / 0.39 | 0.86 / 0.68 / 0.50 | 0.88 / 0.72 / 0.55 | **0.88 / 0.72 / 0.55** | 0.92 / 0.84 / 0.81 |
+| failing solids, mean (median) | 67 (4) | 199 (32) | 221 (65) | **358 (66)** (1,548 (158)) | 579 (94) |
+
+Without case_37 (see below): chain skull 3.89 / 3.34, brain 6.42, brainstem 2.47, eyes 3.01, TRE 6.91, Dice 0.88 / 0.72 / 0.57, failing 124 (mean shape: 4.42 / 3.94, 6.86, 2.86, 3.65, TRE 7.95, Dice 0.87 / 0.68 / 0.51). Skin mean 1.94 mm, HD95 16.1 (smooth skin kept, same for all methods). The five formerly tipped cases (07, 27, 30, 34, 41): chain skull outer 3.94, TRE 8.0, brain Dice 0.87 (skin only 6.78, TRE 12.8).
+
+**Findings.** (1) The fix removes the pose outliers: no head is at 10-15 mm any more except case_37; the mean number of failing elements fell from 1,548 to 358 because the outlier fits were the large ones. (2) The mean shape improved even more (skull 6.4 -> 4.7, TRE 15.0 -> 8.8): with the outliers fixed the C1 fits of all cases are closer, so the gain of the skin-based prediction over the mean shape is now smaller (chain TRE 7.73 against 8.82; skull 4.18 against 4.74; eyes 4.62 against 5.18, brain Dice 0.88 against 0.86). The skin carries information, but not much beyond the mean in this data. (3) Chain and joint are the same within noise. (4) Best cases by the five-structure average: 40 (3.21), 02, 14, 05; two cases are worse than skin only: 07 (4.63 against 4.26) and 37.
+
+**Remaining failure: case_37.** Skin-only TRE 40.8 mm, eyes 72 mm, 460 failing elements; its nose is a normal one (131 mm below the vertex) so the nose window does not change it; its C1 oracle is fine (TRE 5.7) but with 14,080 failing elements. It is a sixth start failure of a different kind (pose or head shape); the chain gives skull about 24 mm average, 9,454 failing elements. Not analysed yet.
+
+**Caveats.** As section 15 (targets are the C1 fits; 39 training cases per fold; one leave-one-out run; settings tuned on case_02). The best/worst pictures and Slicer scenes in `results_40case/` belong to the run before the fix and were not redone. The temporary per-case data stays in `out_tmp_batch` (git-ignored).
