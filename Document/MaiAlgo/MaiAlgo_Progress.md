@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-17 (section 18)
+Last updated: 2026-11-17 (section 19)
 
 ## Folder layout (reorganised 2026-11-24)
 
@@ -504,3 +504,9 @@ Without case_37 (see below): chain skull 3.89 / 3.34, brain 6.42, brainstem 2.47
 **Mesh quality of the predicted (chain) meshes** (`mesh_quality_chain.csv`; 176,441 solids; failing = a corner scaled Jacobian <= 0): the template has 4 failing and 1,076 elements below 0.2. Predicted meshes: 0 of 40 have no failing element; 6 have 10 or fewer, 25 have 100 or fewer, one (case_37) has more than 1,000 (9,454). Median 66 (0.04 % of the elements), mean 358; elements below 0.2 median 3,113 (template 1,076); 34 % of the failing elements touch a skin node. The template itself contains zero-length edges, so no time-step ratio was computed.
 
 **Simulation ready? No.** Not yet checked or done: element inversion has to be zero (or at the template's 4), no contact or penetration check between parts, no export to a `.k` file with the original materials, sections and boundary conditions, no LS-DYNA run to normal termination.
+
+## 19. Untangling and the half-head deck for case_40 (2026-11-25)
+
+**Untangling** (notebook cells 15-16). Local repair of inverted hexahedra after the warp: nodes of elements with a corner scaled Jacobian below 0.1 plus one ring of neighbours are free; L-BFGS-B minimises sum (0.1 - SJ)^2 over the corners below 0.1 (analytic gradient, checked against finite differences) plus a spring mu = 1e-4 per mm^2 to the registered position (20 times stiffer on the skin); moves are capped at 5 mm (interior) and 1.5 mm (skin). Tested without the cap (spring 1e-4): 33 of 39 cases went to 0 failing solids (median 65 -> 0), surface distances changed by 0.08 mm at most, skin max move 0.2 mm (median). Six cases (03, 11, 13, 22, 25, 28) were not repaired (failing 112-719 -> 22-313) and the optimiser moved nodes up to 25 mm and the skin up to 15 mm; their failing solids are in the scalp layers and at the back of the head (occipital bone, superior sagittal sinus), where the observed skin is closer to the predicted skull than the template scalp thickness allows (probably flattening on the head rest). A cap on the moves or pinning the skin made them worse, so this needs a minimum scalp thickness when the predicted skull is placed, not a local repair. The capped version (final cell) was tested on cases 02, 40, 34 (0 failing) and on the four hard cases; the full 39-case run with the cap was stopped and not repeated. Case_37 (broken start) is not repaired either (9,454 -> 3,672).
+
+**Deck** (notebook cell 17 `write_deck`). `Head_V6_impact_baseline.k` is the right hemisphere of the head (86,528 nodes, 85,514 solids, under the student cap of 128K elements) with a moving rigid wall (5 kg, v0 -2000, from y = 30, normal -y), 10 ms, and a fixed node set; the warped mesh is put back into the template pose (rigid fit, 14.7 deg for case_40) and only the *NODE coordinates change, so the wall acts where it did on the template. Decks for case_40: untangled predicted mesh (0 failing solids in the deck, 441 below 0.1; template 2 and 99) and the raw predicted mesh (18 failing), in `output/out_sim_case_40/`. Not run: the solver (LS-DYNA R16.1 student, `$ANSYS_LSW_LSDYNA`) stops with error 70022, student licence expired 100 days ago.
