@@ -2,7 +2,7 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-17 (section 17)
+Last updated: 2026-11-17 (section 18)
 
 ---
 
@@ -484,3 +484,11 @@ Without case_37 (see below): chain skull 3.89 / 3.34, brain 6.42, brainstem 2.47
 **Remaining failure: case_37.** Skin-only TRE 40.8 mm, eyes 72 mm, 460 failing elements; its nose is a normal one (131 mm below the vertex) so the nose window does not change it; its C1 oracle is fine (TRE 5.7) but with 14,080 failing elements. It is a sixth start failure of a different kind (pose or head shape); the chain gives skull about 24 mm average, 9,454 failing elements. Not analysed yet.
 
 **Caveats.** As section 15 (targets are the C1 fits; 39 training cases per fold; one leave-one-out run; settings tuned on case_02). The best/worst pictures and Slicer scenes in `results_40case/` belong to the run before the fix and were not redone. The temporary per-case data stays in `out_tmp_batch` (git-ignored).
+
+## 18. Pictures, scenes and mesh quality of the nose-window run (2026-11-24)
+
+**Pictures and scenes** (`results_40case_nosefix/`): best 1 case_40 (five-structure average 3.21 mm), best 2 case_02 (3.26), worst 1 case_37 (23.9; the template sits about 40 deg out of place, the skin-only start fails), worst 2 case_34 (4.94); PNG per case (skin only, prediction, C1 oracle; blue = GT, orange = result) and `slicer_scenes/*.mrb` (about 24 MB each, not committed; same layout and colours as section 15; best1 reloaded and checked). The scenes in `results_40case/` are from the run before the fix.
+
+**Mesh quality of the predicted (chain) meshes** (`mesh_quality_chain.csv`; 176,441 solids; failing = a corner scaled Jacobian <= 0): the template has 4 failing and 1,076 elements below 0.2. Predicted meshes: 0 of 40 have no failing element; 6 have 10 or fewer, 25 have 100 or fewer, one (case_37) has more than 1,000 (9,454). Median 66 (0.04 % of the elements), mean 358; elements below 0.2 median 3,113 (template 1,076); 34 % of the failing elements touch a skin node. The template itself contains zero-length edges, so no time-step ratio was computed.
+
+**Simulation ready? No.** Not yet checked or done: element inversion has to be zero (or at the template's 4), no contact or penetration check between parts, no export to a `.k` file with the original materials, sections and boundary conditions, no LS-DYNA run to normal termination.
