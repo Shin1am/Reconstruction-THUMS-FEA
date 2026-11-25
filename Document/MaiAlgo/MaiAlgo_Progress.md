@@ -2,7 +2,19 @@
 
 Running log for the algorithm work done with Claude. Newest entries go at the bottom. Frozen baselines (Day1, Day2) and the Day3 run are left as they are; new work goes in this folder.
 
-Last updated: 2026-11-17 (section 14)
+Last updated: 2026-11-17 (section 19)
+
+## Folder layout (reorganised 2026-11-24)
+
+```
+Document/MaiAlgo/
+  MaiAlgo_Progress.md, MaiAlgo_Notebook_Guide.md
+  code/      early experiment scripts (run_exp.py, run_all.sh, eval_exp.py, aggregate.py, jacobian_diagnostic.py, cfg.py, jobs.txt); the current pipeline is the notebook in Code/notebook/CPS_Pipeline/
+  logs/      run logs of those scripts
+  output/    experiment outputs, one out_<case>_<name>/ folder each (git-ignored): baselines and G2_skinlm_nose of cases 02/03/05/08/12, out_slicer_case_02, out_tmp_batch (per-case data of the 40-case run)
+  results/   case_csv/ (per-case tables), 40case_before_nosefix/, 40case_nosefix/ (tables, pictures, mesh quality; slicer_scenes/*.mrb are not committed)
+```
+Older entries below name paths as they were then: `out_*` folders now live in `output/`, `results_40case` is `results/40case_before_nosefix`, `results_40case_nosefix` is `results/40case_nosefix`, `results_case_NN.csv` is in `results/case_csv/`, `log_*.txt` in `logs/`. About 100 experiment output folders (X/Y/Z/S/T series, C/D eyes runs, ARAP variants, G1/G2c, temporary batch copies) were deleted on 2026-11-24; their numbers are in this log.
 
 ---
 
@@ -421,3 +433,80 @@ Tried and rejected (case_02): carry the skin correction inward with a depth fade
 Kept: rebuild the interior of the start from the smoothed skin (one TPS through the smooth skin, smoothing 1e-3) before the engine runs. Results (stiff / mid): skull outer 2.86 / 2.40, inner 1.96 / 1.35, brain 5.14 / 4.73, brainstem 1.49 / 1.32, eyes 0.68 / 0.73 mm; failing **107 / 1,254** (was 333 / 2,230); of the 107 only 27 touch the skin. The start alone (`l_skin`) has 4 failing, like the template. Ladder with the same start: `l_skin` 9.05 / 8.35 / 8.86 / 13.04 / 7.04 mm, 4 failing; `l_skin_skull` 2.40 / 1.37 / 5.23 / 7.82 / 5.60, 163 failing.
 
 What is left in the 107: temporal bones (60) with both faces fixed by the skull targets (the GT temporal bone is thinner than the template's element thickness in places, a data conflict), face skin 27, a few small parts. Not fixable by relaxing free nodes.
+
+
+## 15. 40 cases: C1 on every case, skin -> skull -> brain model, leave-one-out registration (2026-11-17)
+
+**Run.** All 40 usable cases through cells 0-12 (skin-only start, stiff C1; about 200 s per case, four in parallel). From the C1 fits: fixed template nodes per structure, all cases aligned by their skin only (generalised Procrustes), reduced-rank ridge regression skin -> skull (stage 1) and skull -> brain, brainstem, eyes (stage 2, trained on the true skull), also joint skin -> everything and the mean shape. Leave one subject out; each prediction is registered into the template (known-correspondence pulls, one stiff TPS, smooth skin kept) and scored against the real GT. A first model selection used a closed-form leave-one-out that is degenerate for near-exact fits (it always chose the least regularised model, and chain and joint came out identical); it was replaced by explicit leave-one-out refits (ranks 12-24, ridge 0.01-0.1).
+
+**Node error of the prediction against the C1 targets (mm, leave-one-out, 40 cases).** chain: skull outer 4.91, inner 4.71, brain 4.63, brainstem 5.47, eyes 9.31; joint 4.94 / 4.73 / 4.69 / 5.62 / 9.55; mean shape 8.21 / 7.73 / 6.96 / 7.00 / 20.56. Brain, brainstem, eyes from the TRUE skull: 3.58 / 4.32 / 4.97.
+
+**Scores against the real GT after registration (mean over cases).** Mean symmetric distance in mm, TRE = mean distance of six centroid landmarks, HD95 in mm.
+
+| | skin only (C2) | mean shape | joint | **chain** | C1 oracle |
+|---|---|---|---|---|---|
+| skull outer / inner | 8.82 / 8.07 | 6.44 / 6.13 | 4.55 / 4.04 | **4.52 / 4.03** | 3.02 / 2.13 |
+| brain | 9.22 | 8.37 | 6.83 | **6.83** | 5.45 |
+| brainstem | 10.19 | 3.35 | 2.81 | **2.75** | 1.46 |
+| eyes | 14.69 | 14.47 | 5.26 | **4.92** | 0.87 |
+| TRE (6 centroids) | 18.95 | 15.03 | 8.44 | **8.28** | 4.24 |
+| Dice brain / brainstem / eyes | 0.79 / 0.21 / 0.36 | 0.82 / 0.65 / 0.25 | 0.87 / 0.69 / 0.52 | **0.87 / 0.70 / 0.52** | 0.91 / 0.84 / 0.80 |
+| HD95 skull outer / inner | 32.8 / 30.7 | 20.2 / 19.0 | 15.6 / 12.7 | **15.4 / 12.5** | 13.1 / 9.1 |
+| HD95 brainstem / eyes | 28.2 / 24.6 | 9.8 / 22.6 | 8.1 / 10.6 | **8.0 / 10.4** | 4.9 / 3.1 |
+| failing solids, mean (median) | 249 (4) | 609 (46) | 1,399 (175) | **1,548 (158)** | 2,368 (138) |
+
+Without the five pose outliers (cases 07, 27, 30, 34, 41; 35 cases) the chain gives skull 3.96 / 3.42, brain 6.47, brainstem 2.58, eyes 3.12 mm, TRE 7.16, Dice 0.88 / 0.71 / 0.56, failing 529 (C2: 8.04 / 7.38, 8.69, 9.97, 7.10, TRE 15.85, Dice 0.80 / 0.22 / 0.40; C1 oracle 2.92 / 1.96, 5.38, 1.44, 0.76, TRE 4.11, Dice 0.92 / 0.84 / 0.81). Skin mean 2.18 mm (HD95 19.3) for all methods (1.94 / 16.5 without the outliers), because the smooth skin is kept.
+
+**Findings.** (1) The prediction beats both the skin-only start and the mean shape on every structure, and in no case is it worse than the skin-only start (average of the five structure distances). (2) The skull is predicted to about 4.5 mm (from 8-9 mm), brain Dice 0.87 against 0.79; the brainstem is mostly a stable position (the mean shape already gives 3.35 mm), the eyes are the structure where the skin helps most (14.5 -> 4.9 mm). (3) Chain and joint are almost the same; the chain is slightly better for eyes and brainstem. (4) The remaining gap to the C1 oracle is about 1.5-2 mm for the skull and 0.2-0.3 Dice for brainstem and eyes. (5) The worst cases are the head-tipped pose outliers (34: 15.5 mm average, brain Dice 0.64; 30: 11.5, 0.75; 07: 10.9; 27) and case_37 (6.3, 11,299 failing solids); even their C1 oracle is poor because the nose-tip start fails there. The two best cases are 23 and 16 (3.3 mm average, brain Dice 0.90), then 31, 05, 38, 42. (6) Mesh validity is the weak point: predicted meshes fail more often than the skin-only start (median 158 against 4); several cases are large (37, 34, 30, 07).
+
+**Caveats.** The prediction targets are the C1 fits, not the raw GT, so the scores include the C1 residual (oracle TRE 4.2 mm); GT brain-side surfaces are approximate; brain surface distance is inflated by internal template surfaces, use the brain Dice; eye Dice is hull-based per eye; linear model, 39 training cases per fold, training included the five pose outliers (a training set without them was not run); one run of leave-one-out, no uncertainty weighting yet; the 25 mm / 0.8-1.25 settings of C1 were tuned on case_02.
+
+**Kept** (`Document/MaiAlgo/results_40case/`): four overlap pictures (best1 case_23, best2 case_16, worst1 case_34, worst2 case_30; skin only, prediction and C1 oracle against GT), `summary_means.csv`, `per_case_scores.csv`, `direct_prediction_errors.csv`, and four Slicer scenes (`slicer_scenes/*.mrb`, about 25 MB each, not committed): ground truth (blue), prediction (orange), skin only (green), C1 oracle (purple), skull inner, brain, brainstem and eyes as separate models, ground truth and prediction visible by default. **Deleted:** the temporary per-case results (`out_tmp_batch`, the per-case working folders). Code: notebook cells 11-14 (the batch step is cells 0-12 per case, see the guide).
+
+## 16. Head-tipped start fixed (2026-11-17)
+
+**Cause.** In the five pose outliers (07, 27, 30, 34, 41) the head is tipped back with the chin forward, so the most anterior skin point (the start landmark and the nose crop) is the chin, 157-194 mm below the vertex (normal heads: 95-139 mm). The start and the crop were wrong, the rigid CPD ended 14-60 deg away, and skin-only TRE was 41-53 mm (normal about 19). A pose search by trimmed rigid ICP on the skin was tried and dropped: a round cranium leaves the pitch free (its pose differed from the skull pose by 17-50 deg in all cases).
+
+**Fix (cells 2, 6, 8).** `NOSE_WIN` (env `MAI_NOSEWIN`, default 145 mm): the subject nose tip is the most anterior point within 145 mm below the vertex. Skin only; only the five outliers get a different nose (their nose lands 83-106 mm below the vertex; case_07 at 83 mm is the highest, check it by eye).
+
+**Result** (mean symmetric distance, mm; old -> new; 3 controls unchanged to 0.1-0.2 mm). Skin only, skull outer: 07 12.2 -> 4.2, 27 10.1 -> 7.5, 30 15.6 -> 7.4, 34 19.3 -> 9.1, 41 14.3 -> 5.4; eyes 78-90 -> 3-13 (34 still 13.1). C1 oracle, skull outer / inner: 07 3.3/2.7 -> 2.7/1.6, 27 3.4/2.2 -> 2.9/1.8, 30 3.4/3.1 -> 2.5/1.8, 34 5.1/5.3 -> 3.1/2.0, 41 3.4/3.1 -> 2.6/1.7; eyes 0.6-0.7 everywhere. Controls 02, 05, 23 identical. Failing solids not compared yet.
+
+**Not done.** The other 35 cases were not re-run (their nose is unchanged by construction); the skin -> skull -> brain model and its leave-one-out scores (section 15) still contain the old outlier fits and must be re-run to update. A run of 4 cases needs `OMP_NUM_THREADS=3` (and MKL/OPENBLAS) per process; without it four processes slowed each other to about 50 min per case.
+
+## 17. 40 cases re-run with the nose-window start (2026-11-24)
+
+**Run.** All 40 cases again (cells 0-12, `MAI_NOSEWIN=145`), model and leave-one-out registration as in section 15 (results in `results/40case_nosefix/`; section 15 files in `results_40case/` are the run before the fix). Three cases (11, 12, 13) crashed on first read and cases 10 and 14 gave wrong fits (case 14 had read a skin file of 23,349 points instead of 40,194): Google Drive reads were flaky; re-running those five gave the old values, then model and scoring were redone. A run of 4 cases needs `OMP_NUM_THREADS=3` per process.
+
+**Scores, mean over 40 cases** (mm; Dice; failing = solid elements with a non-positive corner Jacobian). Section 15 value in brackets for the chain.
+
+| | skin only | mean shape | joint | **chain** | C1 oracle |
+|---|---|---|---|---|---|
+| skull outer / inner | 7.88 / 7.23 | 4.74 / 4.27 | 4.19 / 3.66 | **4.18 / 3.64** (4.52 / 4.03) | 2.90 / 1.94 |
+| brain | 8.61 | 7.10 | 6.67 | **6.66** (6.83) | 5.37 |
+| brainstem | 9.50 | 2.93 | 2.52 | **2.53** (2.75) | 1.43 |
+| eyes | 7.05 | 5.18 | 4.67 | **4.62** (4.92) | 0.75 |
+| TRE (6 centroids) | 15.47 | 8.82 | 7.79 | **7.73** (8.28) | 4.08 |
+| Dice brain / brainstem / eyes | 0.81 / 0.25 / 0.39 | 0.86 / 0.68 / 0.50 | 0.88 / 0.72 / 0.55 | **0.88 / 0.72 / 0.55** | 0.92 / 0.84 / 0.81 |
+| failing solids, mean (median) | 67 (4) | 199 (32) | 221 (65) | **358 (66)** (1,548 (158)) | 579 (94) |
+
+Without case_37 (see below): chain skull 3.89 / 3.34, brain 6.42, brainstem 2.47, eyes 3.01, TRE 6.91, Dice 0.88 / 0.72 / 0.57, failing 124 (mean shape: 4.42 / 3.94, 6.86, 2.86, 3.65, TRE 7.95, Dice 0.87 / 0.68 / 0.51). Skin mean 1.94 mm, HD95 16.1 (smooth skin kept, same for all methods). The five formerly tipped cases (07, 27, 30, 34, 41): chain skull outer 3.94, TRE 8.0, brain Dice 0.87 (skin only 6.78, TRE 12.8).
+
+**Findings.** (1) The fix removes the pose outliers: no head is at 10-15 mm any more except case_37; the mean number of failing elements fell from 1,548 to 358 because the outlier fits were the large ones. (2) The mean shape improved even more (skull 6.4 -> 4.7, TRE 15.0 -> 8.8): with the outliers fixed the C1 fits of all cases are closer, so the gain of the skin-based prediction over the mean shape is now smaller (chain TRE 7.73 against 8.82; skull 4.18 against 4.74; eyes 4.62 against 5.18, brain Dice 0.88 against 0.86). The skin carries information, but not much beyond the mean in this data. (3) Chain and joint are the same within noise. (4) Best cases by the five-structure average: 40 (3.21), 02, 14, 05; two cases are worse than skin only: 07 (4.63 against 4.26) and 37.
+
+**Remaining failure: case_37.** Skin-only TRE 40.8 mm, eyes 72 mm, 460 failing elements; its nose is a normal one (131 mm below the vertex) so the nose window does not change it; its C1 oracle is fine (TRE 5.7) but with 14,080 failing elements. It is a sixth start failure of a different kind (pose or head shape); the chain gives skull about 24 mm average, 9,454 failing elements. Not analysed yet.
+
+**Caveats.** As section 15 (targets are the C1 fits; 39 training cases per fold; one leave-one-out run; settings tuned on case_02). The best/worst pictures and Slicer scenes in `results_40case/` belong to the run before the fix and were not redone. The temporary per-case data stays in `out_tmp_batch` (git-ignored).
+
+## 18. Pictures, scenes and mesh quality of the nose-window run (2026-11-24)
+
+**Pictures and scenes** (`results/40case_nosefix/`): best 1 case_40 (five-structure average 3.21 mm), best 2 case_02 (3.26), worst 1 case_37 (23.9; the template sits about 40 deg out of place, the skin-only start fails), worst 2 case_34 (4.94); PNG per case (skin only, prediction, C1 oracle; blue = GT, orange = result) and `slicer_scenes/*.mrb` (about 24 MB each, not committed; same layout and colours as section 15; best1 reloaded and checked). The scenes in `results_40case/` are from the run before the fix.
+
+**Mesh quality of the predicted (chain) meshes** (`mesh_quality_chain.csv`; 176,441 solids; failing = a corner scaled Jacobian <= 0): the template has 4 failing and 1,076 elements below 0.2. Predicted meshes: 0 of 40 have no failing element; 6 have 10 or fewer, 25 have 100 or fewer, one (case_37) has more than 1,000 (9,454). Median 66 (0.04 % of the elements), mean 358; elements below 0.2 median 3,113 (template 1,076); 34 % of the failing elements touch a skin node. The template itself contains zero-length edges, so no time-step ratio was computed.
+
+**Simulation ready? No.** Not yet checked or done: element inversion has to be zero (or at the template's 4), no contact or penetration check between parts, no export to a `.k` file with the original materials, sections and boundary conditions, no LS-DYNA run to normal termination.
+
+## 19. Untangling and the half-head deck for case_40 (2026-11-25)
+
+**Untangling** (notebook cells 15-16). Local repair of inverted hexahedra after the warp: nodes of elements with a corner scaled Jacobian below 0.1 plus one ring of neighbours are free; L-BFGS-B minimises sum (0.1 - SJ)^2 over the corners below 0.1 (analytic gradient, checked against finite differences) plus a spring mu = 1e-4 per mm^2 to the registered position (20 times stiffer on the skin); moves are capped at 5 mm (interior) and 1.5 mm (skin). Tested without the cap (spring 1e-4): 33 of 39 cases went to 0 failing solids (median 65 -> 0), surface distances changed by 0.08 mm at most, skin max move 0.2 mm (median). Six cases (03, 11, 13, 22, 25, 28) were not repaired (failing 112-719 -> 22-313) and the optimiser moved nodes up to 25 mm and the skin up to 15 mm; their failing solids are in the scalp layers and at the back of the head (occipital bone, superior sagittal sinus), where the observed skin is closer to the predicted skull than the template scalp thickness allows (probably flattening on the head rest). A cap on the moves or pinning the skin made them worse, so this needs a minimum scalp thickness when the predicted skull is placed, not a local repair. The capped version (final cell) was tested on cases 02, 40, 34 (0 failing) and on the four hard cases; the full 39-case run with the cap was stopped and not repeated. Case_37 (broken start) is not repaired either (9,454 -> 3,672).
+
+**Deck** (notebook cell 17 `write_deck`). `Head_V6_impact_baseline.k` is the right hemisphere of the head (86,528 nodes, 85,514 solids, under the student cap of 128K elements) with a moving rigid wall (5 kg, v0 -2000, from y = 30, normal -y), 10 ms, and a fixed node set; the warped mesh is put back into the template pose (rigid fit, 14.7 deg for case_40) and only the *NODE coordinates change, so the wall acts where it did on the template. Decks for case_40: untangled predicted mesh (0 failing solids in the deck, 441 below 0.1; template 2 and 99) and the raw predicted mesh (18 failing), in `output/out_sim_case_40/`. Not run: the solver (LS-DYNA R16.1 student, `$ANSYS_LSW_LSDYNA`) stops with error 70022, student licence expired 100 days ago.

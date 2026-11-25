@@ -5,7 +5,8 @@ import sys
 
 import pandas as pd
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+CODE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.join(CODE, '..', 'output')            # experiment outputs (out_*)
 CASE = sys.argv[1] if len(sys.argv) > 1 else 'case_02'
 # the baseline is regenerated in this folder with `python run_exp.py <case> baseline` (no flags)
 BASE_NAME = '0 baseline'
@@ -33,7 +34,7 @@ for name, (d, icsv) in runs.items():
                      failing=jj.get('failing_registered'), newly_failing=jj.get('newly_failing')))
 df = pd.DataFrame(rows).round(2)
 print(df.to_string(index=False))
-df.to_csv(os.path.join(HERE, f'results_{CASE}.csv'), index=False)
+df.to_csv(os.path.join(CODE, '..', 'results', 'case_csv', f'results_{CASE}.csv'), index=False)
 
 ref = pd.read_csv(runs[BASE_NAME][1])
 sim = ref[ref.state == 'similarity (rigid CPD)'].set_index('structure')['mean_sym'].round(2)
