@@ -1,0 +1,171 @@
+{
+  "source": "Original case_02_skin_surface.stl, before neck/head cropping",
+  "alignment": "Frozen original similarity transform; no refit",
+  "surface_sampling": "Area-uniform Monte Carlo; 50000 samples per surface; two seeds",
+  "ROI": "Matched horizontal truncation plane z >= cutoff in LPS mm; no caps included in score",
+  "scores": {
+    "-895": {
+      "CT_boundary_vertices": [
+        574,
+        [
+          -59.46908950805664,
+          75.78028106689453,
+          -31.264663696289062,
+          168.2694091796875,
+          -895.0,
+          -895.0
+        ]
+      ],
+      "SAM_boundary_vertices": [
+        109,
+        [
+          -56.62543185109845,
+          69.12947486249104,
+          -9.74329292122674,
+          164.55855006228657,
+          -895.0000001467456,
+          -894.9999998500125
+        ]
+      ],
+      "runs": [
+        {
+          "seed": 2026,
+          "mean_symmetric_mm": 6.585613894682968,
+          "rmse_symmetric_mm": 8.39100656208161,
+          "chamfer_L1_sum_mm": 13.171227789365936,
+          "hd95_max_directional_mm": 17.80086368179389,
+          "SAM_to_CT_mean_mm": 6.165775605309077,
+          "CT_to_SAM_mean_mm": 7.00545218405686
+        },
+        {
+          "seed": 2027,
+          "mean_symmetric_mm": 6.567747157640495,
+          "rmse_symmetric_mm": 8.368048363522545,
+          "chamfer_L1_sum_mm": 13.13549431528099,
+          "hd95_max_directional_mm": 17.789314535869014,
+          "SAM_to_CT_mean_mm": 6.159927655580247,
+          "CT_to_SAM_mean_mm": 6.975566659700743
+        }
+      ]
+    },
+    "-890": {
+      "CT_boundary_vertices": [
+        589,
+        [
+          -61.108726501464844,
+          76.57762145996094,
+          -33.45598220825195,
+          165.78204345703125,
+          -890.0,
+          -890.0
+        ]
+      ],
+      "SAM_boundary_vertices": [
+        121,
+        [
+          -57.624668416485896,
+          69.30583236839153,
+          -20.68367216484739,
+          162.5127119674618,
+          -890.0000002972823,
+          -889.9999997638133
+        ]
+      ],
+      "runs": [
+        {
+          "seed": 2026,
+          "mean_symmetric_mm": 6.575453060054621,
+          "rmse_symmetric_mm": 8.402573309655258,
+          "chamfer_L1_sum_mm": 13.150906120109243,
+          "hd95_max_directional_mm": 17.906752562766552,
+          "SAM_to_CT_mean_mm": 6.132727828545579,
+          "CT_to_SAM_mean_mm": 7.018178291563664
+        },
+        {
+          "seed": 2027,
+          "mean_symmetric_mm": 6.542604245446141,
+          "rmse_symmetric_mm": 8.360589740037764,
+          "chamfer_L1_sum_mm": 13.085208490892281,
+          "hd95_max_directional_mm": 17.832420800540437,
+          "SAM_to_CT_mean_mm": 6.130234817149481,
+          "CT_to_SAM_mean_mm": 6.9549736737428
+        }
+      ]
+    },
+    "-885": {
+      "CT_boundary_vertices": [
+        602,
+        [
+          -63.980316162109375,
+          77.97541046142578,
+          -34.9139404296875,
+          164.19631958007812,
+          -885.0,
+          -885.0
+        ]
+      ],
+      "SAM_boundary_vertices": [
+        128,
+        [
+          -58.49309900870169,
+          69.24948315600646,
+          -25.23853493136535,
+          161.0576931439792,
+          -885.0000001507881,
+          -884.9999998410685
+        ]
+      ],
+      "runs": [
+        {
+          "seed": 2026,
+          "mean_symmetric_mm": 6.541018810282694,
+          "rmse_symmetric_mm": 8.40089665647328,
+          "chamfer_L1_sum_mm": 13.082037620565387,
+          "hd95_max_directional_mm": 17.948161624947033,
+          "SAM_to_CT_mean_mm": 6.08098886851616,
+          "CT_to_SAM_mean_mm": 7.001048752049226
+        },
+        {
+          "seed": 2027,
+          "mean_symmetric_mm": 6.51799089796939,
+          "rmse_symmetric_mm": 8.365604259377893,
+          "chamfer_L1_sum_mm": 13.03598179593878,
+          "hd95_max_directional_mm": 17.908544073410198,
+          "SAM_to_CT_mean_mm": 6.105783152965666,
+          "CT_to_SAM_mean_mm": 6.930198642973114
+        }
+      ]
+    }
+  },
+  "mesh_boundary_vertices": {
+    "source_full_ct": [
+      291,
+      [
+        -169.8070068359375,
+        155.75579833984375,
+        32.80832290649414,
+        185.0181121826172,
+        -938.5308837890625,
+        -938.4271850585938
+      ]
+    ],
+    "full_sam_cut": [
+      86,
+      [
+        -52.786010933525255,
+        78.54794494754009,
+        21.14232907679423,
+        179.3516284273256,
+        -929.4546672294103,
+        -916.8225751649477
+      ]
+    ]
+  },
+  "limitations": [
+    "Original CT volume/segmentation mask is absent, so voxel segmentation and extraction cannot be audited",
+    "Head/neck cut plane is geometric, not an anatomical neck boundary",
+    "Mesh boundary edges remain outside the scoring region; no artificial cap contributes to metrics",
+    "SAM surface retains its original open crop boundary",
+    "Similarity scale was fit using the CT surface; use rigid scores for scale-free evaluation"
+  ]
+}

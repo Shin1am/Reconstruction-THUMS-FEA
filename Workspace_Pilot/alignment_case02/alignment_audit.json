@@ -1,0 +1,28 @@
+{
+  "template_bounds": [
+    -283.35641,
+    -52.307373,
+    -82.594749,
+    82.594749,
+    519.14178,
+    770.88989
+  ],
+  "CT_bounds_LPS_mm": [
+    -85.85901641845703,
+    91.79884338378906,
+    -41.424034118652344,
+    188.2333526611328,
+    -910.4717407226562,
+    -687.6915893554688
+  ],
+  "FE_bounds_LPS_mm": [
+    -83.67546197600731,
+    88.13859537500457,
+    -21.892261156202323,
+    205.98269576348213,
+    -914.851568356071,
+    -686.946654892467
+  ],
+  "matched_landmarks_available": false,
+  "note": "PCA and nearest-surface error cannot prove anatomical correspondence or left/right identity. No anatomical landmarks have been fabricated. Regions follow the old oblique crop; not anatomical segmentation. Metrics are vertex-sampled, bidirectional whole-surface nearest-neighbor distances grouped by source ROI."
+}

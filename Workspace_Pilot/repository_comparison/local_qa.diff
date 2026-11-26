@@ -1,0 +1,17 @@
+--- project/Code/python/k_mesh_qa.py
++++ Code/python/k_mesh_qa.py
+@@ -300,12 +300,12 @@
+ 
+     if bad_eids:
+         print(f"\n  ⚠ FAILING ELEMENT IDs (first 20): {bad_eids[:20]}")
+-        print("  -> These are suspect elements requiring further geometric and solver checks.")
++        print("  -> These WILL crash or stall the LS-DYNA solver.")
+         print("  -> Trace back to source vertices in your TPS/CPD warp field;")
+         print("     likely cause: warp control points too sparse near this region,")
+         print("     or skull/brain boundary folded during the deformation.")
+     else:
+-        print("\n  ✓ No suspect elements detected by this heuristic; solver validity is NOT established.")
++        print("\n  ✓ No inverted/degenerate elements detected — solver-safe.")
+ 
+     # duplicate node check (common artifact of CPD warps applied per-vertex
+     # without preserving topology/connectivity constraints)

@@ -1,0 +1,21 @@
+{
+  "triangles": 79999,
+  "unique_vertices": 40146,
+  "bounds_min_LPS_mm": [
+    -169.8070068359375,
+    -41.424034118652344,
+    -938.5308837890625
+  ],
+  "bounds_max_LPS_mm": [
+    155.75579833984375,
+    188.2333526611328,
+    -687.6915893554688
+  ],
+  "source": "https://drive.google.com/file/d/1WWRtzz8zCxehABQGtW6u0HnSNjwfjaAN/view",
+  "registration_run": false,
+  "missing": [
+    "Head_V6.k",
+    "Head_V6.vtu",
+    "k_mesh_qa.py"
+  ]
+}

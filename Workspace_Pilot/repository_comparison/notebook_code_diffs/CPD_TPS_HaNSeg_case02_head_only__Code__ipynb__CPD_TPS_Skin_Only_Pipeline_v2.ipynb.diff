@@ -1,0 +1,593 @@
+--- CPD_TPS_HaNSeg_case02_head_only.ipynb
++++ Code/ipynb/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+@@ -1,5 +1,4 @@
+-# Install dependencies in this kernel before running:
+-# %pip install pycpd pyvista numpy scipy matplotlib pandas
++!pip install pycpd pyvista numpy scipy matplotlib pandas -q
+ 
+ import os, sys
+ import numpy as np
+@@ -14,29 +13,25 @@
+ print('pyvista:', pv.__version__)
+ print('numpy  :', np.__version__)
+ 
+-BASE_DIR = os.path.abspath(os.environ.get('HEAD_MODEL_BASE_DIR', str(__import__('pathlib').Path.cwd() / 'project')))
+-# Set HEAD_MODEL_BASE_DIR to the directory containing Data/ and Code/.
+-
+-TEMPLATE_K    = os.path.join(BASE_DIR, 'Data/Ls_dyna_model/Head_V6.k')
+-TEMPLATE_VTU  = os.path.join(BASE_DIR, 'Data/mesh_model/Head_V6.vtu')
+-
+-# SAM3D landmarks -- not wired in yet, falls back to FALLBACK_SUBJECT_FILE
+-SUBJECT_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/HaN-Seg/GT/usable/case_02/case_02_skin_head_only_LPS_mm.npy')
+-FALLBACK_SUBJECT_FILE = os.path.join(BASE_DIR, 'Data/mesh_model/ImageToStl.com_head_voxels_transform_2.vtu')
++BASE_DIR = r'/Volumes/Extreme SSD/2d_3d_regis dataset/New_version'
++
++TEMPLATE_K    = os.path.join(BASE_DIR, 'Head_V6.k')
++TEMPLATE_VTU  = os.path.join(BASE_DIR, 'Data/outputs/vtk_export/Head_V6.vtu')
++
++# TODO: point this at the real SAM3D landmark export once available.
++SUBJECT_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/subject_landmarks.npy')
++# Placeholder fallback ONLY used if SUBJECT_LANDMARKS_PATH doesn't exist yet:
++FALLBACK_SUBJECT_FILE = r'/Volumes/Extreme SSD/Head_model/head_surface.key'  # outer head skin only
+ N_FALLBACK_SAMPLES = 3000
+ 
+-# neck/shoulder cutoff -- template skin has no neck; subject scan does
+-NECK_Z_CUTOFF = None
+-
+-# manually matched landmark pairs (Slicer3D) -- seed Stage 0.5b's Kabsch rotation
+-TEMPLATE_MATCHED_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/landmarks_matched/template_landmarks_matched.npy')
+-SUBJECT_MATCHED_LANDMARKS_PATH  = os.path.join(BASE_DIR, 'Data/landmarks_matched/subject_landmarks_matched.npy')
+-
+-OUTPUT_DIR = os.path.join(BASE_DIR, 'Data/outputs/cpd_tps_case02_head_only')
++OUTPUT_DIR = os.path.join(BASE_DIR, 'Data/outputs/cpd_tps_skin_registration')
+ os.makedirs(OUTPUT_DIR, exist_ok=True)
+ 
+-SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX = 88000001, 88000099  # informational only
+-SKIN_PID_MIN, SKIN_PID_MAX = 88000160, 88000240  # driving surface PID range
++# Outer skull surface PIDs — same convention validated earlier in this project
++# (VTU_TwoStage_Registration_v3_3.ipynb): registering the skull's own outer
++# surface against the subject's head-shape data, rather than the full facial
++# skeleton, keeps the registration signal from being diluted.
++SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX = 88000001, 88000099
+ 
+ N_LANDMARKS_FIXED  = 2000
+ N_LANDMARKS_MOVING = 2000
+@@ -48,31 +43,25 @@
+ 
+ TPS_SMOOTHING = 1e-3
+ 
++# Lightweight non-rigid ICP refinement (Stage 6)
+ ICP_ITERS = 10
+-ICP_MAX_CORR_DIST_MM = 15.0
+-ICP_STEP = 0.5
+-ICP_SMOOTH_NEIGHBORS = 8
++ICP_MAX_CORR_DIST_MM = 15.0   # ignore correspondences farther than this (avoid chasing outliers)
++ICP_STEP = 0.5                # fraction of the pull vector applied per iteration
++ICP_SMOOTH_NEIGHBORS = 8      # k-NN graph smoothing to keep the surface coherent
+ 
+ print('Template .k  exists:', os.path.exists(TEMPLATE_K))
+ print('Template .vtu exists:', os.path.exists(TEMPLATE_VTU))
+ print('Subject landmarks   :', os.path.exists(SUBJECT_LANDMARKS_PATH), '(fallback will be used if False)')
+-print('Fallback subject surface exists:', os.path.exists(FALLBACK_SUBJECT_FILE))
+-print('Matched template landmarks exists:', os.path.exists(TEMPLATE_MATCHED_LANDMARKS_PATH))
+-print('Matched subject landmarks exists :', os.path.exists(SUBJECT_MATCHED_LANDMARKS_PATH))
+-
+-required = [TEMPLATE_K, TEMPLATE_VTU]
+-if not os.path.exists(SUBJECT_LANDMARKS_PATH):
+-    required.append(FALLBACK_SUBJECT_FILE)
+-missing = [path for path in required if not os.path.isfile(path)]
+-if missing:
+-    raise FileNotFoundError('Missing model data; set HEAD_MODEL_BASE_DIR:\n' + '\n'.join(missing))
+ 
+ import re
+ 
+ HEAD_FACE_INCLUDE_PREFIXES = (
+-    'frontal', 'parietal', 'temporal', 'occipital', 'sphenoid', 'ethmoid',
+-    'lacrimal', 'nasal', 'zygomatic', 'maxilla',
+-)  # informational only
++    'frontal', 'parietal', 'temporal', 'occipital', 'sphenoid', 'ethmoid',  # braincase
++    'lacrimal', 'nasal', 'zygomatic', 'maxilla',                            # mid-face, has real skin counterpart
++)
++# Explicitly excluded: mandible (jaw), palatine, teeth-lwr/upr, alveolar,
++# str1-7/ng-str/ng-str2 -- no outer-skin correspondence, caused the
++# hanging-down "neck" artifact.
+ 
+ def parse_part_names(k_path):
+     names = {}
+@@ -89,13 +78,10 @@
+ 
+ PART_NAMES = parse_part_names(TEMPLATE_K)
+ 
+-# skin driving surface: true outer ("_out_") layer only
+-SKIN_EXTERNAL_PIDS = [
+-    pid for pid in range(SKIN_PID_MIN, SKIN_PID_MAX + 1)
+-    if '_out_' in PART_NAMES.get(pid, '')
++SKULL_EXTERNAL_PIDS = [
++    pid for pid in range(SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX + 1)
++    if '_external_' in PART_NAMES.get(pid, '') and matches_include_list(PART_NAMES.get(pid, ''), HEAD_FACE_INCLUDE_PREFIXES)
+ ]
+-
+-# informational only
+ HEAD_FACE_ALL_PIDS = [
+     pid for pid in range(SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX + 1)
+     if matches_include_list(PART_NAMES.get(pid, ''), HEAD_FACE_INCLUDE_PREFIXES)
+@@ -103,30 +89,52 @@
+ 
+ template_mesh = pv.read(TEMPLATE_VTU)
+ print(f'Template: {template_mesh.n_points:,} pts, {template_mesh.n_cells:,} cells')
+-print(f'Skin external ("_out_") PIDs found: {len(SKIN_EXTERNAL_PIDS)} -> {SKIN_EXTERNAL_PIDS}')
+-print(f'Facial/cranial bone PIDs (informational only): {len(HEAD_FACE_ALL_PIDS)}')
++print(f'External-only head/face PIDs found: {len(SKULL_EXTERNAL_PIDS)} -> {SKULL_EXTERNAL_PIDS}')
++print(f'All head/face PIDs (any variant)   : {len(HEAD_FACE_ALL_PIDS)}')
+ 
+ pids = template_mesh.cell_data['part_id']
+ 
+-# skin driving surface (node_id kept so it can be written back at save time)
+-skin_cells = np.where(np.isin(pids, SKIN_EXTERNAL_PIDS))[0]
+-skin_sub = template_mesh.extract_cells(skin_cells)
+-skin_surf = skin_sub.extract_surface().triangulate()
+-skin_surf_node_ids = np.asarray(skin_surf.point_data['node_id'])
+-skin_surf_pts0 = np.asarray(skin_surf.points, dtype=np.float64)
+-
+-# propagation target: whole mesh
+-all_node_ids = np.asarray(template_mesh.point_data['node_id'])
+-all_pts0     = np.asarray(template_mesh.points, dtype=np.float64)
+-
+-print(f'\nSkin driving surface (template) : {skin_surf.n_points:,} pts')
+-print(f'Whole head model (propagation target): {len(all_node_ids):,} pts (skull + brain + jaw + everything)')
+-if not SKIN_EXTERNAL_PIDS or len(skin_surf_pts0) < 4:
+-    raise ValueError('No usable outer skin: check part names and PID selection.')
+-if len(np.unique(all_node_ids)) != len(all_node_ids):
+-    raise ValueError('Template node_id values must be unique.')
+-
+-def load_subject_landmarks(path, fallback_path, n_fallback, z_cutoff=None):
++# External surface only -- drives the registration (real subject correspondence)
++ext_cells = np.where(np.isin(pids, SKULL_EXTERNAL_PIDS))[0]
++skull_sub = template_mesh.extract_cells(ext_cells)
++skull_surf = skull_sub.extract_surface(algorithm='dataset_surface').triangulate()
++skull_surf_node_ids = skull_surf.point_data['node_id']
++skull_surf_pts0     = np.asarray(skull_surf.points, dtype=np.float64)
++
++# Full head/face bone volume (external + internal shells + solid) -- candidate for warping
++full_cells = np.where(np.isin(pids, HEAD_FACE_ALL_PIDS))[0]
++skull_full_sub = template_mesh.extract_cells(full_cells)
++skull_full_node_ids = np.asarray(skull_full_sub.point_data['node_id'])
++skull_full_pts0     = np.asarray(skull_full_sub.points, dtype=np.float64)
++
++full_nid_to_idx = {int(nid): i for i, nid in enumerate(skull_full_node_ids)}
++external_idx_in_full = np.array([full_nid_to_idx[int(nid)] for nid in skull_surf_node_ids])
++
++# Freeze any head/face node also referenced by anything OUTSIDE the head/face
++# list (brain, jaw, teeth, or anything else) -- warping these tears whichever
++# side doesn't move.
++sys.path.insert(0, os.path.join(BASE_DIR, 'Code'))
++from k_mesh_qa import parse_k_file
++_, elems_solid_all, elems_shell_all = parse_k_file(TEMPLATE_K)
++
++head_face_pid_set = set(HEAD_FACE_ALL_PIDS)
++head_face_node_set = set(int(n) for n in skull_full_node_ids)
++frozen_boundary_nodes = set()
++for eid, (pid, conn) in list(elems_solid_all.items()) + list(elems_shell_all.items()):
++    if pid not in head_face_pid_set:
++        for n in conn:
++            if n in head_face_node_set:
++                frozen_boundary_nodes.add(n)
++
++warp_mask = np.array([int(nid) not in frozen_boundary_nodes for nid in skull_full_node_ids])
++
++print(f'\nExternal surface (drives registration)      : {skull_surf.n_points:,} pts')
++print(f'Full head/face bone volume (candidate)       : {len(skull_full_node_ids):,} pts')
++print(f'Frozen at boundary with excluded tissue       : {(~warp_mask).sum():,} pts')
++print(f'Actually warped                               : {warp_mask.sum():,} pts')
++print(f'Brain + jaw/teeth + everything else: {template_mesh.n_points - len(skull_full_node_ids):,} pts left untouched')
++
++def load_subject_landmarks(path, fallback_path, n_fallback):
+     if os.path.exists(path):
+         if path.endswith('.npy'):
+             pts = np.load(path)
+@@ -140,54 +148,41 @@
+     print('  Replace SUBJECT_LANDMARKS_PATH once SAM3D output is available.')
+ 
+     if fallback_path.endswith(('.k', '.key')):
+-        sys.path.insert(0, os.path.join(BASE_DIR, 'Code/python'))
++        sys.path.insert(0, os.path.join(BASE_DIR, 'Code'))
+         from k_mesh_qa import parse_k_file
+         fb_nodes, _, _ = parse_k_file(fallback_path)
+         fb_pts = np.array(list(fb_nodes.values()), dtype=np.float64)
+     else:
+         fb_mesh = pv.read(fallback_path)
+-        fb_pts = np.asarray(fb_mesh.extract_surface().points, dtype=np.float64)
++        fb_pts = np.asarray(fb_mesh.points, dtype=np.float64)
+ 
+     print(f'  Fallback surface: {len(fb_pts):,} points total')
+-
+-    if z_cutoff is not None:
+-        n_before = len(fb_pts)
+-        fb_pts = fb_pts[fb_pts[:, 2] >= z_cutoff]
+-        print(f'  Neck/shoulder cutoff (Z >= {z_cutoff}): kept {len(fb_pts):,} / {n_before:,} '
+-              f'({100 * len(fb_pts) / n_before:.1f}%)')
+-
+-    if len(fb_pts) < 4:
+-        raise ValueError('Too few fallback surface points after neck cutoff.')
+     idx = np.random.choice(len(fb_pts), min(n_fallback, len(fb_pts)), replace=False)
+     return fb_pts[idx]
+ 
+-subject_pts = load_subject_landmarks(SUBJECT_LANDMARKS_PATH, FALLBACK_SUBJECT_FILE, N_FALLBACK_SAMPLES, z_cutoff=NECK_Z_CUTOFF)
++subject_pts = load_subject_landmarks(SUBJECT_LANDMARKS_PATH, FALLBACK_SUBJECT_FILE, N_FALLBACK_SAMPLES)
+ print(f'Subject point set: {subject_pts.shape}')
+-def validate_points(points, name):
+-    if points.ndim != 2 or points.shape[1] != 3 or len(points) < 4:
+-        raise ValueError(f'{name} must have shape (N,3), N >= 4')
+-    if not np.isfinite(points).all():
+-        raise ValueError(f'{name} contains non-finite coordinates')
+-    if np.linalg.matrix_rank(points - points.mean(0)) < 3:
+-        raise ValueError(f'{name} must span three dimensions for TPS')
+-validate_points(subject_pts, 'subject')
+-validate_points(skin_surf_pts0, 'template skin')
+-
+-def center_only(fixed_pts, moving_pts):
++
++def center_and_scale(fixed_pts, moving_pts):
+     c_fixed  = fixed_pts.mean(0)
+     c_moving = moving_pts.mean(0)
+     f_c = fixed_pts - c_fixed
+     m_c = moving_pts - c_moving
+-    scale = 1.0
++    diag_f = np.linalg.norm(f_c.max(0) - f_c.min(0))
++    diag_m = np.linalg.norm(m_c.max(0) - m_c.min(0))
++    scale = diag_f / (diag_m + 1e-8)
+     return f_c, m_c * scale, dict(c_fixed=c_fixed, c_moving=c_moving, scale=scale)
+ 
+-nf_c, nm_surf_cs, norm_params = center_only(subject_pts, skin_surf_pts0)
++# Basis for centering/scale is still the EXTERNAL surface vs subject (the only
++# pair with real correspondence) -- the full skull volume is then carried
++# through the exact same transform so everything stays in one consistent frame.
++nf_c, nm_surf_cs, norm_params = center_and_scale(subject_pts, skull_surf_pts0)
+ c_fixed, c_moving, scale = norm_params['c_fixed'], norm_params['c_moving'], norm_params['scale']
+-nm_all_cs = (all_pts0 - c_moving) * scale
++nm_full_cs = (skull_full_pts0 - c_moving) * scale
+ 
+ print(f'Centroid (subject) : {c_fixed.round(1)}')
+ print(f'Centroid (template): {c_moving.round(1)}')
+-print(f'Scale factor        : {scale:.4f} (fixed, auto-rescale removed)')
++print(f'Scale factor        : {scale:.4f}')
+ 
+ def plot_overlap(a, b, title, labels=('Subject', 'Template'), n_sample=4000):
+     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+@@ -201,42 +196,7 @@
+     fig.suptitle(title)
+     plt.tight_layout(); plt.show()
+ 
+-plot_overlap(nf_c, nm_surf_cs, 'After center only (no rescale, before any registration)')
+-
+-def kabsch_rotation(P, Q):
+-    """Rotation R (P @ R.T) mapping centered P onto centered Q."""
+-    Pc = P - P.mean(0)
+-    Qc = Q - Q.mean(0)
+-    H = Pc.T @ Qc
+-    U, S, Vt = np.linalg.svd(H)
+-    d = np.sign(np.linalg.det(Vt.T @ U.T))
+-    D = np.diag([1, 1, d])
+-    R = Vt.T @ D @ U.T
+-    return R
+-
+-if os.path.exists(TEMPLATE_MATCHED_LANDMARKS_PATH) and os.path.exists(SUBJECT_MATCHED_LANDMARKS_PATH):
+-    tmpl_lm_raw = np.load(TEMPLATE_MATCHED_LANDMARKS_PATH)
+-    subj_lm_raw = np.load(SUBJECT_MATCHED_LANDMARKS_PATH)
+-    assert tmpl_lm_raw.shape == subj_lm_raw.shape, \
+-        f'Matched landmark counts must match: {tmpl_lm_raw.shape} vs {subj_lm_raw.shape}'
+-
+-    tmpl_lm_cs = (tmpl_lm_raw - c_moving) * scale
+-    subj_lm_cs = subj_lm_raw - c_fixed
+-
+-    R_seed = kabsch_rotation(tmpl_lm_cs, subj_lm_cs)
+-    residual_before = np.linalg.norm(tmpl_lm_cs - subj_lm_cs, axis=1).mean()
+-    residual_after  = np.linalg.norm(tmpl_lm_cs @ R_seed.T - subj_lm_cs, axis=1).mean()
+-    print(f'Kabsch/Procrustes rigid seed from {len(tmpl_lm_raw)} matched landmark pairs')
+-    print(f'  Mean landmark residual before seed rotation: {residual_before:.2f} (normalized units)')
+-    print(f'  Mean landmark residual after  seed rotation: {residual_after:.2f} (normalized units)')
+-
+-    nm_surf_cs = nm_surf_cs @ R_seed.T
+-    nm_all_cs  = nm_all_cs  @ R_seed.T
+-    landmark_seed_applied = True
+-    plot_overlap(nf_c, nm_surf_cs, 'After landmark-seeded rigid rotation (before PCA)')
+-else:
+-    landmark_seed_applied = False
+-    print('No matched landmark files found -- skipping seed rotation.')
++plot_overlap(nf_c, nm_surf_cs, 'After center + resize (before any registration)')
+ 
+ def farthest_point_sampling(points, n_samples, seed=0):
+     rng = np.random.default_rng(seed)
+@@ -277,7 +237,7 @@
+                 S = np.diag([s0, s1, s2])
+                 R = V_f @ S @ V_m.T
+                 if np.linalg.det(R) < 0:
+-                    continue
++                    continue  # reflection, not a valid rotation
+                 cand = moving_pts @ R.T
+                 d, _ = tree.query(cand[::eval_stride])
+                 score = d.mean()
+@@ -285,32 +245,18 @@
+                     best = (score, R)
+     return best[1], best[0]
+ 
+-if landmark_seed_applied:
+-    R_pca = np.eye(3)
+-    pca_score = np.nan
+-    print('landmark_seed_applied=True -- skipping PCA, R_pca = identity.')
+-else:
+-    R_pca, pca_score = pca_prealign(fixed_lm, moving_lm)
+-    print(f'PCA pre-alignment rotation (best of 4 valid sign combinations):')
+-    print(np.round(R_pca, 3))
+-    print(f'Mean NN distance after PCA align: {pca_score:.2f} (normalized units)')
++R_pca, pca_score = pca_prealign(fixed_lm, moving_lm)
++print(f'PCA pre-alignment rotation (best of 4 valid sign combinations):')
++print(np.round(R_pca, 3))
++print(f'Mean NN distance after PCA align: {pca_score:.2f} (normalized units)')
+ 
+ moving_lm_pca  = moving_lm  @ R_pca.T
+-nm_surf_pca    = nm_surf_cs @ R_pca.T
+-nm_all_pca     = nm_all_cs  @ R_pca.T
+-
+-plot_overlap(fixed_lm, moving_lm_pca, 'After PCA coarse pre-alignment (identity if landmark-seeded)')
+-
+-# pycpd 2.0 ignores scale=False; explicitly constrain scale in the M step.
+-class FixedScaleRigidRegistration(RigidRegistration):
+-    def update_transform(self):
+-        super().update_transform()
+-        self.s = 1.0
+-        muX = (self.P @ self.X).sum(axis=0) / self.Np
+-        muY = (self.P.T @ self.Y).sum(axis=0) / self.Np
+-        self.t = muX - muY @ self.R
+-
+-rigid_reg = FixedScaleRigidRegistration(X=fixed_lm, Y=moving_lm_pca, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
++nm_surf_pca    = nm_surf_cs @ R_pca.T   # dense external surface, consistent with the landmark subset
++nm_full_pca    = nm_full_cs @ R_pca.T   # full skull bone volume (external+internal+solid), same transform
++
++plot_overlap(fixed_lm, moving_lm_pca, 'After PCA coarse pre-alignment')
++
++rigid_reg = RigidRegistration(X=fixed_lm, Y=moving_lm_pca, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
+ TY_rigid, (s_r, R_r, t_r) = rigid_reg.register()
+ 
+ print(f'Rigid scale       : {s_r:.4f}')
+@@ -319,11 +265,16 @@
+ 
+ plot_overlap(fixed_lm, TY_rigid, 'After rigid CPD registration')
+ 
+-AFFINE_SINGULAR_VALUE_CLAMP = (0.8, 1.25)  # reject implausible shear/scale
++AFFINE_SINGULAR_VALUE_CLAMP = (0.8, 1.25)  # reject implausible shear/scale (overfitting a sparse landmark set)
+ 
+ affine_reg = AffineRegistration(X=fixed_lm, Y=TY_rigid, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
+ _, (B_a, t_a) = affine_reg.register()
+ 
++# Clamp singular values of B: an unconstrained affine fit on a small/sparse
++# landmark set can overfit into an anatomically implausible shear or
++# axis-scale (observed: up to 41% z-scale + heavy shear on this dataset,
++# producing a >150mm Hausdorff blow-up downstream). Clamping keeps the
++# transform close to similarity while still allowing modest anisotropy.
+ U, S, Vt = np.linalg.svd(B_a)
+ S_clamped = np.clip(S, *AFFINE_SINGULAR_VALUE_CLAMP)
+ B_a_clamped = U @ np.diag(S_clamped) @ Vt
+@@ -347,23 +298,27 @@
+ 
+ plt.figure(figsize=(6, 3))
+ plt.plot(cpd_errors)
+-plt.xlabel('EM iteration'); plt.ylabel('Callback error (may be undefined for deformable CPD)')
++plt.xlabel('EM iteration'); plt.ylabel('CPD objective (negative log-likelihood)')
+ plt.title('Deformable CPD convergence'); plt.tight_layout(); plt.show()
+ 
+ plot_overlap(fixed_lm, TY_cpd, 'After deformable CPD registration')
+ 
+-tps = RBFInterpolator(moving_lm_pca, TY_cpd, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+-
+-nm_surf_warped_cs = tps(nm_surf_pca)
+-all_warped_cs = tps(nm_all_pca)
+-
+-print(f'Warped dense skin surface: {nm_surf_warped_cs.shape[0]:,} nodes')
+-print(f'Warped whole head model  : {all_warped_cs.shape[0]:,} nodes')
+-plot_overlap(nf_c, nm_surf_warped_cs, 'After TPS propagation (skin surface vs subject)')
++tps = RBFInterpolator(moving_lm, TY_cpd, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
++
++# Evaluate on the FULL skull bone volume (external + internal shells + solid),
++# not just the external surface -- this is what keeps the bone's own solid
++# elements from stretching between a moved external face and a fixed internal
++# face (root cause of ~2,000 newly-inverted elements, see changelog).
++skull_full_warped_cs = tps(nm_full_pca)
++nm_surf_warped_cs = skull_full_warped_cs[external_idx_in_full]  # external subset, for Stage 6/6.5 local refinement
++
++print(f'Warped full skull volume : {skull_full_warped_cs.shape[0]:,} nodes')
++print(f'Warped external surface  : {nm_surf_warped_cs.shape[0]:,} nodes (subset used for local refinement)')
++plot_overlap(nf_c, nm_surf_warped_cs, 'After TPS propagation (external surface vs subject)')
+ 
+ def graph_smooth(vectors, points, k=8, iters=1):
+     tree = cKDTree(points)
+-    _, idx = tree.query(points, k=min(k + 1, len(points)))  # includes self
++    _, idx = tree.query(points, k=k + 1)  # includes self
+     smoothed = vectors.copy()
+     for _ in range(iters):
+         smoothed = smoothed[idx].mean(axis=1)
+@@ -378,7 +333,6 @@
+         valid = (d / scale) < max_corr_dist_mm   # scale converts normalized units back to mm
+         pull[~valid] = 0.0
+         pull_smooth = graph_smooth(pull, pts, k=k_smooth)
+-        pull_smooth[~valid] = 0.0  # preserve rejection after smoothing
+         pts = pts + step * pull_smooth
+     return pts
+ 
+@@ -390,8 +344,8 @@
+ 
+ plot_overlap(nf_c, nm_surf_icp_cs, 'After non-rigid ICP refinement')
+ 
+-BLEND_TRANSITION_MM = 10.0
+-CONF_SMOOTH_NEIGHBORS = 8
++BLEND_TRANSITION_MM = 10.0   # width of the blend zone around the "which is better" boundary
++CONF_SMOOTH_NEIGHBORS = 8    # spatial smoothing of the confidence field (prevents spikes between neighbors)
+ CONF_SMOOTH_ITERS = 3
+ 
+ def coverage_damped_blend(original_pts, warped_pts, target_pts, scale,
+@@ -403,13 +357,19 @@
+     d_orig_mm   /= scale
+     d_warped_mm /= scale
+ 
+-    # per-point confidence in the warp: 1 = warp better, 0 = original better
+-    advantage = d_orig_mm - d_warped_mm
++    # raw, per-point confidence in the WARP: 1 if warp is clearly better than
++    # original, 0 if original is clearly better, linear blend in between
++    advantage = d_orig_mm - d_warped_mm   # positive => warp is better
+     confidence_raw = np.clip(advantage / transition_mm + 0.5, 0.0, 1.0)
+ 
+-    # smooth confidence spatially so neighbors don't diverge
++    # Spatially smooth the confidence field itself (k-NN graph, on the
++    # WARPED point positions -- these are what the final mesh connectivity
++    # actually sits on). Without this, two mesh-adjacent vertices can get
++    # very different confidence and the element between them stretches into
++    # a spike/self-intersection when one point keeps its warp and its
++    # neighbor reverts to original.
+     tree_p = cKDTree(warped_pts)
+-    _, knn_idx = tree_p.query(warped_pts, k=min(smooth_k + 1, len(warped_pts)))
++    _, knn_idx = tree_p.query(warped_pts, k=smooth_k + 1)  # includes self
+     confidence = confidence_raw.copy()
+     for _ in range(smooth_iters):
+         confidence = confidence[knn_idx].mean(axis=1)
+@@ -430,12 +390,17 @@
+ print(f'Reverted to original (original was better): {n_reverted:,} / {len(coverage_conf):,} points')
+ print(f'Partially blended                     : {n_blend:,} / {len(coverage_conf):,} points')
+ 
++# how much did smoothing actually change vs the raw per-point decision?
+ conf_delta = np.abs(coverage_conf - coverage_conf_raw)
+ print(f'Confidence changed by smoothing -- mean {conf_delta.mean():.3f}, max {conf_delta.max():.3f}, '
+       f'{(conf_delta > 0.1).sum():,} points shifted by >0.1')
+ 
+-print(f'Blend diagnostic -- mean residual: original={d_orig_mm.mean():.2f}mm  warped={d_warped_mm.mean():.2f}mm  blended={d_blended_mm.mean():.2f}mm')
++print(f'Do-no-harm check -- mean residual: original={d_orig_mm.mean():.2f}mm  warped={d_warped_mm.mean():.2f}mm  blended={d_blended_mm.mean():.2f}mm')
+ print(f'                     max residual : original={d_orig_mm.max():.2f}mm  warped={d_warped_mm.max():.2f}mm  blended={d_blended_mm.max():.2f}mm')
++# NOTE: smoothing the confidence field trades a small amount of the strict
++# per-point do-no-harm guarantee for spatial coherence (no more spikes) --
++# a smoothed point can end up slightly worse than min(orig, warped) at that
++# single point, but neighboring elements no longer tear apart from each other.
+ 
+ plot_overlap(nf_c, nm_surf_final_cs, 'After confidence-damped blend (final, spatially smoothed)')
+ 
+@@ -448,11 +413,11 @@
+     chamfer = d_s2t.mean() + d_t2s.mean()
+     hausdorff = max(d_s2t.max(), d_t2s.max())
+     return dict(mean=d_s2t.mean(), median=np.median(d_s2t), rms=np.sqrt((d_s2t**2).mean()),
+-                max=d_s2t.max(), chamfer=chamfer, hausdorff=hausdorff, hd95=max(np.percentile(d_s2t,95), np.percentile(d_t2s,95)))
++                max=d_s2t.max(), chamfer=chamfer, hausdorff=hausdorff)
+ 
+ rows = []
+ for stage, pts in [
+-    ('0. Center + optional seed',        moving_lm),
++    ('0. Center+resize',        moving_lm),
+     ('1. PCA pre-align',        moving_lm_pca),
+     ('2. Rigid CPD',            TY_rigid),
+     ('3. Affine CPD',           TY_affine),
+@@ -467,46 +432,36 @@
+ summary_df
+ 
+ fig, ax = plt.subplots(figsize=(9, 4))
+-ax.bar(summary_df['stage'], summary_df['hausdorff'], color='steelblue', alpha=0.85)
+-ax.set_ylabel('Hausdorff distance to subject surface (mm)')
++ax.bar(summary_df['stage'], summary_df['mean'], color='steelblue', alpha=0.85)
++ax.set_ylabel('Mean nearest-neighbor distance to subject surface (mm)')
+ ax.set_title('Registration quality by stage (lower = better)')
+ plt.xticks(rotation=25, ha='right')
+ plt.tight_layout(); plt.show()
+ 
+-improvement = (summary_df.iloc[0]['hausdorff'] - summary_df.iloc[-1]['hausdorff']) / summary_df.iloc[0]['hausdorff'] * 100
+-print(f"Hausdorff distance: {summary_df.iloc[0]['hausdorff']:.2f} mm -> {summary_df.iloc[-1]['hausdorff']:.2f} mm "
++improvement = (summary_df.iloc[0]['mean'] - summary_df.iloc[-1]['mean']) / summary_df.iloc[0]['mean'] * 100
++print(f"Mean surface error: {summary_df.iloc[0]['mean']:.2f} mm -> {summary_df.iloc[-1]['mean']:.2f} mm "
+       f"({improvement:.1f}% reduction)")
+ print(f"Final Hausdorff distance: {summary_df.iloc[-1]['hausdorff']:.2f} mm")
+ 
+ def to_world(pts_cs_pca):
+-    # TPS output is already in centered SUBJECT coordinates.
+-    return (pts_cs_pca / scale) + c_fixed
+-
+-# Stage 5b -- rebuild TPS from the fully refined skin correspondence, apply to whole mesh
+-# Bound global TPS memory: dense fitting requires a quadratic system.
+-# Use fixed controls across experiments; inspect fit error before increasing.
+-N_FINAL_TPS_CONTROLS = 2000
+-control_idx = farthest_point_sampling(nm_surf_pca, N_FINAL_TPS_CONTROLS)
+-tps_final = RBFInterpolator(nm_surf_pca[control_idx], nm_surf_final_cs[control_idx],
+-                            kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+-all_final_cs = np.vstack([tps_final(nm_all_pca[i:i+5000])
+-                          for i in range(0, len(nm_all_pca), 5000)])
+-# Keep a single field for skin and interior; no separate skin overwrite.
+-skin_final_cs = tps_final(nm_surf_pca)
+-print('Final TPS skin fit RMS:', np.sqrt(np.mean(np.sum(
+-    (skin_final_cs - nm_surf_final_cs)**2, axis=1))))
+-rows.append(dict(stage='8. Final TPS exported skin',
+-                 **surface_agreement(skin_final_cs, nf_c, scale)))
+-summary_df = pd.DataFrame(rows).round(3)
+-
+-final_world_coords = to_world(all_final_cs)
+-skin_world_coords   = to_world(skin_final_cs)  # skin's own directly-computed position
+-
+-updated_coords = {int(nid): xyz for nid, xyz in zip(all_node_ids, final_world_coords)}
+-# All nodes, including skin, use the same TPS mapping.
+-print(f'Nodes to update: {len(all_node_ids):,} (whole head model), '
+-      f'{len(skin_surf_node_ids):,} skin nodes use the same field')
+-
++    pts_cs = pts_cs_pca @ np.linalg.inv(R_pca).T   # undo PCA rotation
++    return (pts_cs / scale) + c_moving             # undo scale + centering
++
++# Start from the TPS-only warp for the whole skull volume, then overwrite the
++# external-surface rows with the fully refined (ICP + confidence-blend) result
++skull_full_final_cs = skull_full_warped_cs.copy()
++skull_full_final_cs[external_idx_in_full] = nm_surf_final_cs
++
++final_world_coords = to_world(skull_full_final_cs)
++
++# Only nodes NOT frozen at the skull/brain interface actually get updated;
++# frozen boundary nodes keep their original .k coordinate untouched.
++updated_coords = {
++    int(nid): xyz for nid, xyz, keep in zip(skull_full_node_ids, final_world_coords, warp_mask) if keep
++}
++print(f'Nodes to update (full skull bone volume, excluding frozen boundary): {len(updated_coords):,}')
++
++# Map node_id -> point index in the full template mesh, then patch just those rows
+ node_id_to_idx = {int(nid): idx for idx, nid in enumerate(template_mesh.point_data['node_id'])}
+ 
+ final_mesh = template_mesh.copy()
+@@ -515,25 +470,20 @@
+     new_points[node_id_to_idx[nid]] = xyz
+ final_mesh.points = new_points
+ 
+-OUTPUT_VTU = os.path.join(OUTPUT_DIR, 'Head_V6_skin_registered_fixed.vtu')
+-if not np.isfinite(new_points).all():
+-    raise ValueError('Non-finite output coordinates')
++OUTPUT_VTU = os.path.join(OUTPUT_DIR, 'Head_V6_skin_registered_v2.vtu')
+ final_mesh.save(OUTPUT_VTU)
+-reloaded = pv.read(OUTPUT_VTU)
+-np.testing.assert_allclose(reloaded.points, new_points)
+-assert reloaded.n_cells == template_mesh.n_cells
+ print(f'Wrote -> {OUTPUT_VTU}')
+ 
+-out_csv = os.path.join(OUTPUT_DIR, 'validation_summary_fixed.csv')
++out_csv = os.path.join(OUTPUT_DIR, 'validation_summary_v2.csv')
+ summary_df.to_csv(out_csv, index=False)
+ print(f'Wrote -> {out_csv}')
+ 
+-sys.path.insert(0, os.path.join(BASE_DIR, 'Code/python'))
++sys.path.insert(0, os.path.join(BASE_DIR, 'Code'))
+ from k_mesh_qa import parse_k_file, check_mesh
+ 
+ nodes_orig, elems_solid_orig, elems_shell_orig = parse_k_file(TEMPLATE_K)
+ 
+-# Every node updated now (whole head model), not just a subset
++# Same nodes as original, except the skull-surface subset we just warped
+ nodes_new = dict(nodes_orig)
+ nodes_new.update(updated_coords)
+ 
+@@ -542,6 +492,6 @@
+ 
+ result = check_mesh(nodes_new, elems_solid_orig, label=OUTPUT_VTU, elems_shell=elems_shell_orig)
+ 
+-# Confirm every node that should have moved actually differs from original
+-moved_ok = all(not np.array_equal(nodes_orig[nid], nodes_new[nid]) for nid in updated_coords)
+-print(f'\nAll updated nodes actually differ from original: {moved_ok}')
++# Confirm brain/internal nodes are truly untouched (not in updated_coords)
++untouched_ok = all(nodes_orig[nid] == nodes_new[nid] for nid in nodes_orig if nid not in updated_coords)
++print(f'\nAll non-skull-surface nodes unchanged: {untouched_ok}')

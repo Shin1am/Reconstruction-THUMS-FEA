@@ -1,0 +1,7 @@
+{
+  "baseline_suspect": 7117,
+  "final_suspect": 7507,
+  "new_flagged_ids": 632,
+  "cleared_flagged_ids": 246,
+  "note": "Heuristic per-part volume-sign checks; not full Jacobian or solver validation."
+}

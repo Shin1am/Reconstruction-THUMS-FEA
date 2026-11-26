@@ -1,0 +1,92 @@
+{
+  "experiment": "CT-derived synthetic-input pilot; NOT independent photographic validation",
+  "subject": "HaN-Seg case_02",
+  "source": "/Users/yada/Documents/ChatGPT/2D-3D image processing/project/Data/HaN-Seg/GT/usable/case_02/stl/case_02_skin_head_neck.stl",
+  "units": "mm",
+  "views": [
+    {
+      "name": "front",
+      "yaw_degrees": 0,
+      "projection": "orthographic",
+      "center_LPS_mm": [
+        2.1309399604797363,
+        70.0,
+        -800.0
+      ],
+      "right": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "toward_camera": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "vertical": [
+        0,
+        0,
+        1
+      ],
+      "field_width_mm": 290,
+      "image_pixels": 768
+    },
+    {
+      "name": "oblique_left",
+      "yaw_degrees": 35,
+      "projection": "orthographic",
+      "center_LPS_mm": [
+        2.1309399604797363,
+        70.0,
+        -800.0
+      ],
+      "right": [
+        0.8191520442889918,
+        0.573576436351046,
+        0.0
+      ],
+      "toward_camera": [
+        0.573576436351046,
+        -0.8191520442889918,
+        0.0
+      ],
+      "vertical": [
+        0,
+        0,
+        1
+      ],
+      "field_width_mm": 290,
+      "image_pixels": 768
+    },
+    {
+      "name": "oblique_right",
+      "yaw_degrees": -35,
+      "projection": "orthographic",
+      "center_LPS_mm": [
+        2.1309399604797363,
+        70.0,
+        -800.0
+      ],
+      "right": [
+        0.8191520442889918,
+        -0.573576436351046,
+        0.0
+      ],
+      "toward_camera": [
+        -0.573576436351046,
+        -0.8191520442889918,
+        0.0
+      ],
+      "vertical": [
+        0,
+        0,
+        1
+      ],
+      "field_width_mm": 290,
+      "image_pixels": 768
+    }
+  ],
+  "renderer": "software triangle painter; grayscale two-sided lighting, no texture",
+  "SAM3D_status": "Completed independent front, oblique_left, oblique_right SAM 3D Body CPU inference",
+  "validation_protocol": "Shared Z >= -895 mm ROI; 50000 area-uniform samples per surface; seeds 2026 and 2027; frozen per-view rigid and similarity alignment; no nonrigid deformation"
+}

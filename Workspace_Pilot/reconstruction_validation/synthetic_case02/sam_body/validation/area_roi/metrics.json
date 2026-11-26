@@ -1,0 +1,159 @@
+{
+  "protocol": {
+    "samples_per_surface": 50000,
+    "seeds": [
+      2026,
+      2027
+    ],
+    "roi": "Z >= cutoff in CT coordinates; no artificial cap faces",
+    "primary_cutoff_mm": -895,
+    "sensitivity_cutoffs_mm": [
+      -890,
+      -885
+    ],
+    "alignment": "Previously saved rigid/similarity transforms frozen; no refit",
+    "distance": "Area-uniform sampled points to exact target triangles, both directions",
+    "chamfer_definition": "Sum of directional mean unsigned distances (mm)",
+    "hd95_definition": "Maximum of directional 95th percentiles (mm)"
+  },
+  "results": {
+    "rigid_assuming_meters": {
+      "uniform_scale_relative_to_assumed_meters": 0.9999999999999962,
+      "cutoffs": {
+        "-895": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 7.3934937884564995,
+            "rmse_symmetric_mm": 9.724584815417755,
+            "chamfer_L1_sum_mm": 14.786987576912999,
+            "hd95_max_directional_mm": 21.146004126289434,
+            "sam_to_ct_mean_mm": 7.744466300117851,
+            "ct_to_sam_mean_mm": 7.042521276795149
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 7.452727593813702,
+            "rmse_symmetric_mm": 9.796712233540072,
+            "chamfer_L1_sum_mm": 14.905455187627403,
+            "hd95_max_directional_mm": 21.09922201561462,
+            "sam_to_ct_mean_mm": 7.781265834463064,
+            "ct_to_sam_mean_mm": 7.124189353164339
+          }
+        ],
+        "-890": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 7.45691165925135,
+            "rmse_symmetric_mm": 9.792138008724754,
+            "chamfer_L1_sum_mm": 14.9138233185027,
+            "hd95_max_directional_mm": 21.14015631886166,
+            "sam_to_ct_mean_mm": 7.790507110529695,
+            "ct_to_sam_mean_mm": 7.123316207973005
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 7.507080372703813,
+            "rmse_symmetric_mm": 9.863640238880992,
+            "chamfer_L1_sum_mm": 15.014160745407626,
+            "hd95_max_directional_mm": 21.242037007338073,
+            "sam_to_ct_mean_mm": 7.853230712404211,
+            "ct_to_sam_mean_mm": 7.160930033003416
+          }
+        ],
+        "-885": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 7.527942963964098,
+            "rmse_symmetric_mm": 9.87028296376862,
+            "chamfer_L1_sum_mm": 15.055885927928196,
+            "hd95_max_directional_mm": 21.246654793704206,
+            "sam_to_ct_mean_mm": 7.8616134233709305,
+            "ct_to_sam_mean_mm": 7.194272504557266
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 7.579845573116116,
+            "rmse_symmetric_mm": 9.941689073141136,
+            "chamfer_L1_sum_mm": 15.159691146232232,
+            "hd95_max_directional_mm": 21.34087902228779,
+            "sam_to_ct_mean_mm": 7.9296018490689715,
+            "ct_to_sam_mean_mm": 7.230089297163261
+          }
+        ]
+      }
+    },
+    "similarity": {
+      "uniform_scale_relative_to_assumed_meters": 0.8841153207887206,
+      "cutoffs": {
+        "-895": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.411113114749751,
+            "rmse_symmetric_mm": 8.305352877482074,
+            "chamfer_L1_sum_mm": 12.822226229499503,
+            "hd95_max_directional_mm": 17.803941543379,
+            "sam_to_ct_mean_mm": 6.003143722937389,
+            "ct_to_sam_mean_mm": 6.819082506562113
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.40080769232961,
+            "rmse_symmetric_mm": 8.296114135158732,
+            "chamfer_L1_sum_mm": 12.80161538465922,
+            "hd95_max_directional_mm": 17.764505529261886,
+            "sam_to_ct_mean_mm": 5.971097304398919,
+            "ct_to_sam_mean_mm": 6.830518080260301
+          }
+        ],
+        "-890": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.3988714409298835,
+            "rmse_symmetric_mm": 8.314933857887201,
+            "chamfer_L1_sum_mm": 12.797742881859767,
+            "hd95_max_directional_mm": 17.878362287985848,
+            "sam_to_ct_mean_mm": 5.958078110852062,
+            "ct_to_sam_mean_mm": 6.839664771007705
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.378295093660547,
+            "rmse_symmetric_mm": 8.304356976907666,
+            "chamfer_L1_sum_mm": 12.756590187321095,
+            "hd95_max_directional_mm": 17.875111927829142,
+            "sam_to_ct_mean_mm": 5.950009795545452,
+            "ct_to_sam_mean_mm": 6.8065803917756424
+          }
+        ],
+        "-885": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.398488386051875,
+            "rmse_symmetric_mm": 8.342356526533655,
+            "chamfer_L1_sum_mm": 12.79697677210375,
+            "hd95_max_directional_mm": 17.881322779975655,
+            "sam_to_ct_mean_mm": 5.9381198602799605,
+            "ct_to_sam_mean_mm": 6.858856911823789
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.395250611895639,
+            "rmse_symmetric_mm": 8.353023936301366,
+            "chamfer_L1_sum_mm": 12.790501223791278,
+            "hd95_max_directional_mm": 17.95563905666301,
+            "sam_to_ct_mean_mm": 5.916979883219351,
+            "ct_to_sam_mean_mm": 6.8735213405719255
+          }
+        ]
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic CT-rendered input, not independent real-photo validation",
+    "Geometric shared ROI excludes lower chin/neck; not landmark-defined full-head anatomy",
+    "Fixed original alignment was vertex-based ICP with unmatched original crops",
+    "Rigid units assume meters; similarity scale fitted using CT and does not validate absolute size",
+    "Monte Carlo surface integration; repeat seeds quantify sampling sensitivity",
+    "No nonrigid deformation or mesh densification performed"
+  ]
+}

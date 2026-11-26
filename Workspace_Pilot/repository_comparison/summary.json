@@ -1,0 +1,34 @@
+{
+  "old_commit": "b783ede11b5bbd219098cbbb4d72b75356744ed1",
+  "new_commit": "d4f0b214bc494c9c3754e40bddb6bed580a950a1",
+  "old_clean": true,
+  "new_clean": true,
+  "old_is_ancestor": true,
+  "commits_ahead": 32,
+  "mapped_status_counts": {
+    "changed": 6,
+    "identical": 49,
+    "removed": 1,
+    "added": 126
+  },
+  "workspace_files_inventoried": 267,
+  "basename_candidate_pairs": 5,
+  "notebook_comparisons": 56,
+  "simulations_with_conflicts": 28,
+  "tracked_conflict_markers": [],
+  "excluded_directory_names": [
+    ".cache",
+    ".git",
+    ".ipynb_checkpoints",
+    ".mplconfig",
+    ".torch_cache",
+    ".venv",
+    ".venv_sam_body",
+    "Reconstruction-THUMS-FEA",
+    "__pycache__",
+    "checkpoints",
+    "reconstruction-thums-source",
+    "repository_comparison",
+    "sam-3d-body"
+  ]
+}

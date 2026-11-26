@@ -1,0 +1,159 @@
+{
+  "protocol": {
+    "samples_per_surface": 50000,
+    "seeds": [
+      2026,
+      2027
+    ],
+    "roi": "Z >= cutoff in CT coordinates; no artificial cap faces",
+    "primary_cutoff_mm": -895,
+    "sensitivity_cutoffs_mm": [
+      -890,
+      -885
+    ],
+    "alignment": "Previously saved rigid/similarity transforms frozen; no refit",
+    "distance": "Area-uniform sampled points to exact target triangles, both directions",
+    "chamfer_definition": "Sum of directional mean unsigned distances (mm)",
+    "hd95_definition": "Maximum of directional 95th percentiles (mm)"
+  },
+  "results": {
+    "rigid_assuming_meters": {
+      "uniform_scale_relative_to_assumed_meters": 1.0000000000000022,
+      "cutoffs": {
+        "-895": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.114352864802594,
+            "rmse_symmetric_mm": 8.17283841240471,
+            "chamfer_L1_sum_mm": 12.228705729605188,
+            "hd95_max_directional_mm": 18.12411567425961,
+            "sam_to_ct_mean_mm": 6.3642231246027325,
+            "ct_to_sam_mean_mm": 5.864482605002455
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.158392069930759,
+            "rmse_symmetric_mm": 8.23207478340318,
+            "chamfer_L1_sum_mm": 12.316784139861518,
+            "hd95_max_directional_mm": 18.19119539010584,
+            "sam_to_ct_mean_mm": 6.39428710595666,
+            "ct_to_sam_mean_mm": 5.9224970339048575
+          }
+        ],
+        "-890": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.1571009533720495,
+            "rmse_symmetric_mm": 8.219101507794214,
+            "chamfer_L1_sum_mm": 12.314201906744099,
+            "hd95_max_directional_mm": 18.194722101274742,
+            "sam_to_ct_mean_mm": 6.390171281536572,
+            "ct_to_sam_mean_mm": 5.924030625207526
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.205109597185864,
+            "rmse_symmetric_mm": 8.281183555701709,
+            "chamfer_L1_sum_mm": 12.410219194371727,
+            "hd95_max_directional_mm": 18.22760217894336,
+            "sam_to_ct_mean_mm": 6.458290494942145,
+            "ct_to_sam_mean_mm": 5.951928699429582
+          }
+        ],
+        "-885": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.207398887617531,
+            "rmse_symmetric_mm": 8.278341193851281,
+            "chamfer_L1_sum_mm": 12.414797775235062,
+            "hd95_max_directional_mm": 18.296689826675742,
+            "sam_to_ct_mean_mm": 6.449013847805243,
+            "ct_to_sam_mean_mm": 5.96578392742982
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.257821314736882,
+            "rmse_symmetric_mm": 8.337736408926245,
+            "chamfer_L1_sum_mm": 12.515642629473763,
+            "hd95_max_directional_mm": 18.331320396025692,
+            "sam_to_ct_mean_mm": 6.508802362758469,
+            "ct_to_sam_mean_mm": 6.006840266715296
+          }
+        ]
+      }
+    },
+    "similarity": {
+      "uniform_scale_relative_to_assumed_meters": 0.891958637147363,
+      "cutoffs": {
+        "-895": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.972208519417457,
+            "rmse_symmetric_mm": 9.064900195612385,
+            "chamfer_L1_sum_mm": 13.944417038834914,
+            "hd95_max_directional_mm": 19.226811577336434,
+            "sam_to_ct_mean_mm": 6.511792703897784,
+            "ct_to_sam_mean_mm": 7.432624334937129
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.968182413410586,
+            "rmse_symmetric_mm": 9.055502050003192,
+            "chamfer_L1_sum_mm": 13.936364826821173,
+            "hd95_max_directional_mm": 19.1653639798484,
+            "sam_to_ct_mean_mm": 6.501289126254255,
+            "ct_to_sam_mean_mm": 7.435075700566917
+          }
+        ],
+        "-890": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.970376174787617,
+            "rmse_symmetric_mm": 9.072671646683284,
+            "chamfer_L1_sum_mm": 13.940752349575234,
+            "hd95_max_directional_mm": 19.26958946847293,
+            "sam_to_ct_mean_mm": 6.488905587768677,
+            "ct_to_sam_mean_mm": 7.451846761806558
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.935437063640375,
+            "rmse_symmetric_mm": 9.051792195037981,
+            "chamfer_L1_sum_mm": 13.87087412728075,
+            "hd95_max_directional_mm": 19.26948916779596,
+            "sam_to_ct_mean_mm": 6.457771463102766,
+            "ct_to_sam_mean_mm": 7.413102664177983
+          }
+        ],
+        "-885": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.968932552469644,
+            "rmse_symmetric_mm": 9.095108345981087,
+            "chamfer_L1_sum_mm": 13.937865104939288,
+            "hd95_max_directional_mm": 19.264650225751645,
+            "sam_to_ct_mean_mm": 6.464552763580999,
+            "ct_to_sam_mean_mm": 7.47331234135829
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.955100386973083,
+            "rmse_symmetric_mm": 9.093269259698351,
+            "chamfer_L1_sum_mm": 13.910200773946165,
+            "hd95_max_directional_mm": 19.35800077368231,
+            "sam_to_ct_mean_mm": 6.423994039927021,
+            "ct_to_sam_mean_mm": 7.486206734019145
+          }
+        ]
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic CT-rendered input, not independent real-photo validation",
+    "Geometric shared ROI excludes lower chin/neck; not landmark-defined full-head anatomy",
+    "Fixed original alignment was vertex-based ICP with unmatched original crops",
+    "Rigid units assume meters; similarity scale fitted using CT and does not validate absolute size",
+    "Monte Carlo surface integration; repeat seeds quantify sampling sensitivity",
+    "No nonrigid deformation or mesh densification performed"
+  ]
+}

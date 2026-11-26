@@ -1,0 +1,113 @@
+REPOSITORY COMPARISON — 2026-11-25
+
+Clone: /Users/yada/Documents/ChatGPT/2D-3D image processing/Reconstruction-THUMS-FEA
+Remote: https://github.com/Lnws0m/Reconstruction-THUMS-FEA.git
+Old checkout: b783ede11b5bbd219098cbbb4d72b75356744ed1
+New checkout: d4f0b214bc494c9c3754e40bddb6bed580a950a1
+
+RESULT
+Both nested checkouts are clean. Old HEAD is an ancestor of new HEAD (32 commits ahead).
+No active unmerged index entries or tracked text conflict markers were found.
+The old checkout could fast-forward. No merge, reset, overwrite, or push was performed.
+The outer workspace has untracked research files, so a Git branch merge does not represent those edits.
+
+COMPLETE FILE COMPARISON
+Matched by existing path, then New_version/Code -> Code relocation:
+49 unchanged; 6 byte-different; 1 removed; 126 added.
+Four byte differences in Code/python/{count_elem,extract_head,extract_head_right,list_part}.py are line-ending-only.
+Substantive changes in mapped files: .gitignore and Document/PROJECT_HANDOFF.md.
+New_version/.gitignore removed; ignore rules consolidated at repository root.
+All tracked files included in all_upstream_files.csv; Git rename detection and binary-inclusive patch are also saved.
+Git may map duplicated files to different destinations; our path mapping is explicit and deterministic.
+
+LOCAL WORKSPACE
+267 files inventoried excluding dependencies, model weights, caches and repository internals (full exclusions in summary.json).
+Unmatched data/artifacts are inventoried, not semantically compared against unrelated remote files.
+Five basename candidate pairs: two manifest.json matches are unrelated and are NOT conflicts.
+Three k_mesh_qa.py matches have local safety wording changes; see local_qa.diff.
+Local wording avoids claiming that a heuristic establishes LS-DYNA validity. Preserve it.
+SAM3D validation scripts/results have no matching upstream implementation; retain them as separate work.
+
+NOTEBOOK CODE COMPARISON
+14 local CPD notebooks x 4 remote candidates = 56 comparisons.
+Code cells only: outputs, execution counts, markdown and metadata excluded from semantic merge simulation.
+Common baseline assumed: old New_version/Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_v2.ipynb.
+28 simulations have overlapping textual edits; these are advisory merge conflicts, not evidence of runtime failure.
+Mai is a substantially different algorithm, so the assumed ancestor is only a comparison aid.
+All code differences saved in notebook_code_diffs; all conflicting simulated merges in merge_simulations.
+Do not run merge_simulations: they contain conflict markers.
+No simulation is a scientific validation or full JSON notebook merge.
+
+Code/ipynb/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+  CPD_TPS_HaNSeg_case02.ipynb: 7 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck.ipynb: 7 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck_rerun_executed.ipynb: 7 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only.ipynb: 7 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_executed.ipynb: 7 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_rerun_executed.ipynb: 7 conflict blocks
+  CPD_TPS_HaNSeg_case02_pilot_executed.ipynb: 7 conflict blocks
+  CPD_TPS_Skin_Only_Pipeline_fixed.ipynb: 6 conflict blocks
+  CPD_TPS_case02_coverage.ipynb: 7 conflict blocks
+  CPD_TPS_case02_coverage_executed.ipynb: 7 conflict blocks
+  CPD_TPS_case02_floating_fix.ipynb: 7 conflict blocks
+  CPD_TPS_case02_floating_fix_executed.ipynb: 7 conflict blocks
+  CPD_TPS_case02_oriented.ipynb: 8 conflict blocks
+  CPD_TPS_case02_oriented_executed.ipynb: 8 conflict blocks
+Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb
+  CPD_TPS_HaNSeg_case02.ipynb: 6 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck.ipynb: 6 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck_rerun_executed.ipynb: 6 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only.ipynb: 6 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_executed.ipynb: 6 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_rerun_executed.ipynb: 6 conflict blocks
+  CPD_TPS_HaNSeg_case02_pilot_executed.ipynb: 6 conflict blocks
+  CPD_TPS_Skin_Only_Pipeline_fixed.ipynb: 6 conflict blocks
+  CPD_TPS_case02_coverage.ipynb: 5 conflict blocks
+  CPD_TPS_case02_coverage_executed.ipynb: 5 conflict blocks
+  CPD_TPS_case02_floating_fix.ipynb: 5 conflict blocks
+  CPD_TPS_case02_floating_fix_executed.ipynb: 5 conflict blocks
+  CPD_TPS_case02_oriented.ipynb: 4 conflict blocks
+  CPD_TPS_case02_oriented_executed.ipynb: 4 conflict blocks
+Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+  CPD_TPS_HaNSeg_case02.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck_rerun_executed.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_executed.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_rerun_executed.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_pilot_executed.ipynb: 0 conflict blocks
+  CPD_TPS_Skin_Only_Pipeline_fixed.ipynb: 0 conflict blocks
+  CPD_TPS_case02_coverage.ipynb: 0 conflict blocks
+  CPD_TPS_case02_coverage_executed.ipynb: 0 conflict blocks
+  CPD_TPS_case02_floating_fix.ipynb: 0 conflict blocks
+  CPD_TPS_case02_floating_fix_executed.ipynb: 0 conflict blocks
+  CPD_TPS_case02_oriented.ipynb: 0 conflict blocks
+  CPD_TPS_case02_oriented_executed.ipynb: 0 conflict blocks
+Document/Day1_Baseline/frozen/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+  CPD_TPS_HaNSeg_case02.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_neck_rerun_executed.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_executed.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_head_only_rerun_executed.ipynb: 0 conflict blocks
+  CPD_TPS_HaNSeg_case02_pilot_executed.ipynb: 0 conflict blocks
+  CPD_TPS_Skin_Only_Pipeline_fixed.ipynb: 0 conflict blocks
+  CPD_TPS_case02_coverage.ipynb: 0 conflict blocks
+  CPD_TPS_case02_coverage_executed.ipynb: 0 conflict blocks
+  CPD_TPS_case02_floating_fix.ipynb: 0 conflict blocks
+  CPD_TPS_case02_floating_fix_executed.ipynb: 0 conflict blocks
+  CPD_TPS_case02_oriented.ipynb: 0 conflict blocks
+  CPD_TPS_case02_oriented_executed.ipynb: 0 conflict blocks
+
+RESEARCH/INTEGRATION DIFFERENCES
+1. Code/notebook v2 is unchanged from the old baseline; local fixes are not incorporated there.
+2. Code/ipynb v2 and Mai are distinct variants; choose an explicit pipeline rather than overwriting notebooks.
+3. Mai cfg.py defaults to a Windows G:/ data path. BIODAT_ROOT can override it. Local project/ may be a candidate, but all required data paths must be checked before execution.
+4. Mai includes nonrigid FE personalization, C1 engines and learned internal anatomy. Keep those separate from rigid-only SAM3D reconstruction validation.
+5. Mai guide explicitly says eyes initialization/cropping uses GT eyes and is not C2-strict. Strict C2 must use external-only presets.
+6. Day2 stored Jacobian report has 4 template failures and 742 registered failures (739 newly failing). These are upstream saved results, not rerun results for our current meshes. Do not equate them with the older 7,334 heuristic flags.
+7. C1 fits are approximations, not segmentation ground truth. Keep CT-based errors separate from prediction-vs-C1 errors.
+
+VERIFICATION
+Cloned source was inspected only, not executed. No dependencies installed and no FE or model jobs run for this comparison.
+All original user files preserved; both cloned repositories remain clean.

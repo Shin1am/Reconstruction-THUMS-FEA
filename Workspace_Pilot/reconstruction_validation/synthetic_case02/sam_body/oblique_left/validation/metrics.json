@@ -1,0 +1,76 @@
+{
+  "rigid_assuming_meters": {
+    "mean_symmetric_mm": 5.5649724974295465,
+    "rmse_symmetric_mm": 8.294884166146652,
+    "chamfer_L1_sum_mm": 11.129944994859093,
+    "hd95_mm": 17.866173749889363,
+    "uniform_scale_relative_to_assumed_meters": 1.0000000000000022,
+    "transform_raw_to_CT": [
+      [
+        757.9322622626944,
+        -56.05866872218974,
+        -649.920080842604,
+        -32.068787980595495
+      ],
+      [
+        651.620946001765,
+        111.60894001844773,
+        750.2890024781971,
+        124.32609353374255
+      ],
+      [
+        30.47668868371692,
+        -992.1697789033192,
+        121.1210191412705,
+        -2424.97655923946
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "similarity": {
+    "mean_symmetric_mm": 5.3887330307482415,
+    "rmse_symmetric_mm": 7.653586961790366,
+    "chamfer_L1_sum_mm": 10.777466061496483,
+    "hd95_mm": 18.773013735759644,
+    "uniform_scale_relative_to_assumed_meters": 0.891958637147363,
+    "transform_raw_to_CT": [
+      [
+        670.4303806055634,
+        -48.26720731683187,
+        -586.3306164960951,
+        -24.96218373034071
+      ],
+      [
+        587.0287866961439,
+        113.61036960033273,
+        661.8761952896631,
+        132.41819310806432
+      ],
+      [
+        38.86539248373666,
+        -883.3760077106951,
+        117.16023493479027,
+        -2249.0001156566373
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "limitations": [
+    "Synthetic CT-rendered input; not independent photograph validation",
+    "Head cut y<-1.49 in raw coordinates is provisional and not matched anatomical ROI",
+    "Units assumed meters for rigid baseline, not independently calibrated",
+    "Vertex-weighted point-to-triangle distances; not area-weighted",
+    "No anatomical landmarks; ICP local optimum and coordinate direction require visual review",
+    "No nonrigid deformation applied"
+  ]
+}
