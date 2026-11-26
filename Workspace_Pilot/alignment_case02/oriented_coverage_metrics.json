@@ -1,0 +1,14 @@
+[
+  {
+    "method": "cpd_tps_case02_floating_fix",
+    "posterior_mean": 9.947143100423025,
+    "posterior_p95": 36.19789354184305,
+    "posterior_percent_within_5mm": 52.9961380341348
+  },
+  {
+    "method": "cpd_tps_case02_oriented",
+    "posterior_mean": 1.942496790939401,
+    "posterior_p95": 4.07780139032009,
+    "posterior_percent_within_5mm": 96.8605954902205
+  }
+]

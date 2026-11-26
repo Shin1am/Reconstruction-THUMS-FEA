@@ -1,0 +1,27 @@
+
+============================================================
+MESH QA: unmodified template
+============================================================
+  Nodes   : 179676
+  Elements (solid/tshell): 176441
+  Elements (shell)       : 80130
+
+  NOTE: 41 of 83 parts show a mixed sign split
+  internally (checked per-PID, not whole-mesh) -- flagging only the
+  minority winding within each part as suspect.
+
+  Inverted elements (negative volume): 7117
+  Near-zero volume (degenerate)       : 4
+  Volume stats -> min: 4.640732e-14, median: 3.433500e+00, max: 6.379447e+02
+  Max/min volume ratio (proxy for aspect distortion): 6.38e+14
+  ⚠ WARNING: high volume ratio -> expect LS-DYNA timestep collapse
+
+  ⚠ FAILING ELEMENT IDs (first 20): [88058794, 88064519, 88064524, 88064533, 88064549, 88064552, 88064581, 88064627, 88064641, 88064644, 88064699, 88064715, 88064716, 88064760, 88065277, 88065280, 88065295, 88067836, 88067837, 88067838]
+  -> These are suspect elements requiring further geometric and solver checks.
+  -> Trace back to source vertices in your TPS/CPD warp field;
+     likely cause: warp control points too sparse near this region,
+     or skull/brain boundary folded during the deformation.
+
+  --- Shell elements: 80130 ---
+  Zero/near-zero area shells: 0
+  Area stats -> min: 1.646016e-02, median: 8.135825e+00, max: 1.363706e+02

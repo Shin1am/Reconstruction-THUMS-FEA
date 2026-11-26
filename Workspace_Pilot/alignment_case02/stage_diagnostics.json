@@ -1,0 +1,51 @@
+[
+  {
+    "stage": "nm_surf_pca",
+    "mean": 14.178640528275787,
+    "posterior_floating": 272,
+    "tracked_mean": 68.52773681452199,
+    "tracked_max": 83.73604270161708
+  },
+  {
+    "stage": "nm_surf_warped_cs",
+    "mean": 10.201979425883307,
+    "posterior_floating": 76,
+    "tracked_mean": 20.8881216318583,
+    "tracked_max": 31.719895505548795
+  },
+  {
+    "stage": "nm_surf_icp_cs",
+    "mean": 6.950280941773869,
+    "posterior_floating": 57,
+    "tracked_mean": 20.12001724933854,
+    "tracked_max": 31.719895505548795
+  },
+  {
+    "stage": "nm_surf_final_cs",
+    "mean": 6.29427533901512,
+    "posterior_floating": 57,
+    "tracked_mean": 20.12001724933854,
+    "tracked_max": 31.719895505548795
+  },
+  {
+    "stage": "final_TPS_500",
+    "mean": 6.53861756217326,
+    "posterior_floating": 62,
+    "tracked_mean": 20.179693102314687,
+    "tracked_max": 32.631590585774774
+  },
+  {
+    "stage": "final_TPS_1000",
+    "mean": 6.368885153481946,
+    "posterior_floating": 60,
+    "tracked_mean": 20.32878123186244,
+    "tracked_max": 31.719894238722954
+  },
+  {
+    "stage": "final_TPS_2000",
+    "mean": 6.3368799380109175,
+    "posterior_floating": 58,
+    "tracked_mean": 20.213493317438274,
+    "tracked_max": 31.719896639135957
+  }
+]

@@ -1,0 +1,108 @@
+cell8:45: PyVistaFutureWarning: The default value of `algorithm` for the filter
+`UnstructuredGrid.extract_surface` will change in the future. It currently defaults to
+`'dataset_surface'`, but will change to `None`. Explicitly set the `algorithm` keyword to
+silence this warning.
+cell12:27: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+cell24:13: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+cell34:6: UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown
+pyvista: 0.49.2
+numpy  : 2.5.4
+Template .k  exists: True
+Template .vtu exists: True
+Subject landmarks   : True (fallback will be used if False)
+Fallback subject surface exists: False
+Matched template landmarks exists: False
+Matched subject landmarks exists : False
+Template: 179,676 pts, 256,571 cells
+Skin external ("_out_") PIDs found: 6 -> [88000221, 88000222, 88000223, 88000229, 88000230, 88000231]
+Facial/cranial bone PIDs (informational only): 61
+
+Skin driving surface (template) : 6,182 pts
+Whole head model (propagation target): 179,676 pts (skull + brain + jaw + everything)
+Loaded 33,538 SAM3D landmarks from /Users/yada/Documents/ChatGPT/2D-3D image processing/project/Data/HaN-Seg/GT/usable/case_02/case_02_skin_head_neck_LPS_mm.npy
+Subject point set: (33538, 3)
+Centroid (subject) : [   2.1   75.9 -798.5]
+Centroid (template): [-179.6    0.   690. ]
+Scale factor        : 1.0000 (fixed, auto-rescale removed)
+No matched landmark files found -- skipping seed rotation.
+Fixed  (subject) landmarks : 500
+Moving (template) landmarks: 500
+PCA pre-alignment rotation (best of 4 valid sign combinations):
+[[-0.122 -0.984 -0.127]
+ [ 0.122  0.112 -0.986]
+ [ 0.985 -0.136  0.107]]
+Mean NN distance after PCA align: 17.29 (normalized units)
+Rigid scale       : 1.0000
+Rigid rotation R  :
+[[ 0.999  0.039 -0.031]
+ [-0.034  0.991  0.129]
+ [ 0.036 -0.127  0.991]]
+Rigid translation : [ -0.83 -18.64 -16.55]
+Affine matrix B (raw)    :
+[[ 1.008e+00 -6.300e-02 -3.500e-02]
+ [ 3.200e-02  9.430e-01 -7.700e-02]
+ [ 1.000e-03 -1.250e-01  1.067e+00]]
+Singular values (raw)    : [1.124 1.013 0.884]
+Singular values (clamped): [1.124 1.013 0.884]
+Affine translation: [-0.55 -5.22 -3.65]
+Warped dense skin surface: 6,182 nodes
+Warped whole head model  : 179,676 nodes
+Warp kept in full (warp was better)  : 2,195 / 6,182 points
+Reverted to original (original was better): 274 / 6,182 points
+Partially blended                     : 3,713 / 6,182 points
+Confidence changed by smoothing -- mean 0.039, max 0.861, 736 points shifted by >0.1
+Blend diagnostic -- mean residual: original=14.18mm  warped=6.95mm  blended=6.29mm
+                     max residual : original=83.74mm  warped=67.93mm  blended=62.72mm
+Hausdorff distance: 75.13 mm -> 62.72 mm (16.5% reduction)
+Final Hausdorff distance: 62.72 mm
+DIAGNOSTICS [
+  {
+    "stage": "nm_surf_pca",
+    "mean": 14.178640528275787,
+    "posterior_floating": 272,
+    "tracked_mean": 68.52773681452199,
+    "tracked_max": 83.73604270161708
+  },
+  {
+    "stage": "nm_surf_warped_cs",
+    "mean": 10.201979425883307,
+    "posterior_floating": 76,
+    "tracked_mean": 20.8881216318583,
+    "tracked_max": 31.719895505548795
+  },
+  {
+    "stage": "nm_surf_icp_cs",
+    "mean": 6.950280941773869,
+    "posterior_floating": 57,
+    "tracked_mean": 20.12001724933854,
+    "tracked_max": 31.719895505548795
+  },
+  {
+    "stage": "nm_surf_final_cs",
+    "mean": 6.29427533901512,
+    "posterior_floating": 57,
+    "tracked_mean": 20.12001724933854,
+    "tracked_max": 31.719895505548795
+  },
+  {
+    "stage": "final_TPS_500",
+    "mean": 6.53861756217326,
+    "posterior_floating": 62,
+    "tracked_mean": 20.179693102314687,
+    "tracked_max": 32.631590585774774
+  },
+  {
+    "stage": "final_TPS_1000",
+    "mean": 6.368885153481946,
+    "posterior_floating": 60,
+    "tracked_mean": 20.32878123186244,
+    "tracked_max": 31.719894238722954
+  },
+  {
+    "stage": "final_TPS_2000",
+    "mean": 6.3368799380109175,
+    "posterior_floating": 58,
+    "tracked_mean": 20.213493317438274,
+    "tracked_max": 31.719896639135957
+  }
+]

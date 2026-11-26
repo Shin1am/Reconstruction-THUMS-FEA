@@ -1,0 +1,159 @@
+{
+  "protocol": {
+    "samples_per_surface": 50000,
+    "seeds": [
+      2026,
+      2027
+    ],
+    "roi": "Z >= cutoff in CT coordinates; no artificial cap faces",
+    "primary_cutoff_mm": -895,
+    "sensitivity_cutoffs_mm": [
+      -890,
+      -885
+    ],
+    "alignment": "Previously saved rigid/similarity transforms frozen; no refit",
+    "distance": "Area-uniform sampled points to exact target triangles, both directions",
+    "chamfer_definition": "Sum of directional mean unsigned distances (mm)",
+    "hd95_definition": "Maximum of directional 95th percentiles (mm)"
+  },
+  "results": {
+    "rigid_assuming_meters": {
+      "uniform_scale_relative_to_assumed_meters": 0.9999999999999998,
+      "cutoffs": {
+        "-895": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.5084674144131505,
+            "rmse_symmetric_mm": 8.655694880188307,
+            "chamfer_L1_sum_mm": 13.016934828826301,
+            "hd95_max_directional_mm": 18.876733602993564,
+            "sam_to_ct_mean_mm": 6.786577865151478,
+            "ct_to_sam_mean_mm": 6.230356963674822
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.567689411652511,
+            "rmse_symmetric_mm": 8.728268892035453,
+            "chamfer_L1_sum_mm": 13.135378823305022,
+            "hd95_max_directional_mm": 18.940731744121393,
+            "sam_to_ct_mean_mm": 6.836372741238926,
+            "ct_to_sam_mean_mm": 6.299006082066095
+          }
+        ],
+        "-890": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.559324854737215,
+            "rmse_symmetric_mm": 8.709147529332954,
+            "chamfer_L1_sum_mm": 13.11864970947443,
+            "hd95_max_directional_mm": 18.858190904312714,
+            "sam_to_ct_mean_mm": 6.81790544332493,
+            "ct_to_sam_mean_mm": 6.300744266149501
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.624809578998743,
+            "rmse_symmetric_mm": 8.79554930370229,
+            "chamfer_L1_sum_mm": 13.249619157997486,
+            "hd95_max_directional_mm": 19.09843038382611,
+            "sam_to_ct_mean_mm": 6.920163923624116,
+            "ct_to_sam_mean_mm": 6.32945523437337
+          }
+        ],
+        "-885": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.6072459903043335,
+            "rmse_symmetric_mm": 8.750345030265285,
+            "chamfer_L1_sum_mm": 13.214491980608667,
+            "hd95_max_directional_mm": 18.87677644206124,
+            "sam_to_ct_mean_mm": 6.851509670436311,
+            "ct_to_sam_mean_mm": 6.362982310172357
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.682452790751107,
+            "rmse_symmetric_mm": 8.846383475288485,
+            "chamfer_L1_sum_mm": 13.364905581502214,
+            "hd95_max_directional_mm": 19.16372821587725,
+            "sam_to_ct_mean_mm": 6.9679117945207585,
+            "ct_to_sam_mean_mm": 6.396993786981455
+          }
+        ]
+      }
+    },
+    "similarity": {
+      "uniform_scale_relative_to_assumed_meters": 0.8896710613954106,
+      "cutoffs": {
+        "-895": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.484140611009848,
+            "rmse_symmetric_mm": 8.480428578683924,
+            "chamfer_L1_sum_mm": 12.968281222019696,
+            "hd95_max_directional_mm": 18.278986377429636,
+            "sam_to_ct_mean_mm": 6.0668736768640255,
+            "ct_to_sam_mean_mm": 6.901407545155671
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.482232778934075,
+            "rmse_symmetric_mm": 8.466210978214173,
+            "chamfer_L1_sum_mm": 12.96446555786815,
+            "hd95_max_directional_mm": 18.221466773652356,
+            "sam_to_ct_mean_mm": 6.056205182333953,
+            "ct_to_sam_mean_mm": 6.908260375534198
+          }
+        ],
+        "-890": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.488854170897186,
+            "rmse_symmetric_mm": 8.497517193102011,
+            "chamfer_L1_sum_mm": 12.977708341794372,
+            "hd95_max_directional_mm": 18.32347290431328,
+            "sam_to_ct_mean_mm": 6.046003711843595,
+            "ct_to_sam_mean_mm": 6.931704629950777
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.443423590615078,
+            "rmse_symmetric_mm": 8.46194513304685,
+            "chamfer_L1_sum_mm": 12.886847181230156,
+            "hd95_max_directional_mm": 18.334485810409387,
+            "sam_to_ct_mean_mm": 5.99197041015571,
+            "ct_to_sam_mean_mm": 6.894876771074445
+          }
+        ],
+        "-885": [
+          {
+            "seed": 2026,
+            "mean_symmetric_mm": 6.492469364081995,
+            "rmse_symmetric_mm": 8.526263491991411,
+            "chamfer_L1_sum_mm": 12.98493872816399,
+            "hd95_max_directional_mm": 18.343478474974706,
+            "sam_to_ct_mean_mm": 6.023618540742916,
+            "ct_to_sam_mean_mm": 6.961320187421073
+          },
+          {
+            "seed": 2027,
+            "mean_symmetric_mm": 6.481472091928306,
+            "rmse_symmetric_mm": 8.519234852990815,
+            "chamfer_L1_sum_mm": 12.962944183856612,
+            "hd95_max_directional_mm": 18.42932733420405,
+            "sam_to_ct_mean_mm": 5.985684132506668,
+            "ct_to_sam_mean_mm": 6.977260051349944
+          }
+        ]
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic CT-rendered input, not independent real-photo validation",
+    "Geometric shared ROI excludes lower chin/neck; not landmark-defined full-head anatomy",
+    "Fixed original alignment was vertex-based ICP with unmatched original crops",
+    "Rigid units assume meters; similarity scale fitted using CT and does not validate absolute size",
+    "Monte Carlo surface integration; repeat seeds quantify sampling sensitivity",
+    "No nonrigid deformation or mesh densification performed"
+  ]
+}

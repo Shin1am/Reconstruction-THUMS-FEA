@@ -1,0 +1,1196 @@
+<<<<<<< /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/local.py
+# Install dependencies in this kernel before running:
+# %pip install pycpd pyvista numpy scipy matplotlib pandas
+
+import os, sys
+import numpy as np
+import pyvista as pv
+import matplotlib.pyplot as plt
+import pandas as pd
+from scipy.spatial import cKDTree
+from scipy.interpolate import RBFInterpolator
+from pycpd import RigidRegistration, AffineRegistration, DeformableRegistration
+
+np.random.seed(0)
+print('pyvista:', pv.__version__)
+print('numpy  :', np.__version__)
+
+BASE_DIR = os.path.abspath(os.environ.get('HEAD_MODEL_BASE_DIR', str(__import__('pathlib').Path.cwd() / 'project')))
+# Set HEAD_MODEL_BASE_DIR to the directory containing Data/ and Code/.
+
+TEMPLATE_K    = os.path.join(BASE_DIR, 'Data/Ls_dyna_model/Head_V6.k')
+TEMPLATE_VTU  = os.path.join(BASE_DIR, 'Data/mesh_model/Head_V6.vtu')
+
+# SAM3D landmarks -- not wired in yet, falls back to FALLBACK_SUBJECT_FILE
+SUBJECT_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/HaN-Seg/GT/usable/case_02/case_02_skin_head_only_LPS_mm.npy')
+FALLBACK_SUBJECT_FILE = os.path.join(BASE_DIR, 'Data/mesh_model/ImageToStl.com_head_voxels_transform_2.vtu')
+N_FALLBACK_SAMPLES = 3000
+
+# neck/shoulder cutoff -- template skin has no neck; subject scan does
+NECK_Z_CUTOFF = None
+
+# manually matched landmark pairs (Slicer3D) -- seed Stage 0.5b's Kabsch rotation
+TEMPLATE_MATCHED_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/landmarks_matched/template_landmarks_matched.npy')
+SUBJECT_MATCHED_LANDMARKS_PATH  = os.path.join(BASE_DIR, 'Data/landmarks_matched/subject_landmarks_matched.npy')
+
+OUTPUT_DIR = os.path.join(BASE_DIR, 'Data/outputs/cpd_tps_case02_head_only_rerun')
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX = 88000001, 88000099  # informational only
+SKIN_PID_MIN, SKIN_PID_MAX = 88000160, 88000240  # driving surface PID range
+
+N_LANDMARKS_FIXED  = 500
+N_LANDMARKS_MOVING = 500
+
+CPD_ALPHA = 2.0
+CPD_BETA  = 2.0
+CPD_MAX_ITER = 30
+CPD_TOL = 1e-6
+
+TPS_SMOOTHING = 1e-3
+
+ICP_ITERS = 10
+ICP_MAX_CORR_DIST_MM = 15.0
+ICP_STEP = 0.5
+ICP_SMOOTH_NEIGHBORS = 8
+
+print('Template .k  exists:', os.path.exists(TEMPLATE_K))
+print('Template .vtu exists:', os.path.exists(TEMPLATE_VTU))
+print('Subject landmarks   :', os.path.exists(SUBJECT_LANDMARKS_PATH), '(fallback will be used if False)')
+print('Fallback subject surface exists:', os.path.exists(FALLBACK_SUBJECT_FILE))
+print('Matched template landmarks exists:', os.path.exists(TEMPLATE_MATCHED_LANDMARKS_PATH))
+print('Matched subject landmarks exists :', os.path.exists(SUBJECT_MATCHED_LANDMARKS_PATH))
+
+required = [TEMPLATE_K, TEMPLATE_VTU]
+if not os.path.exists(SUBJECT_LANDMARKS_PATH):
+    required.append(FALLBACK_SUBJECT_FILE)
+missing = [path for path in required if not os.path.isfile(path)]
+if missing:
+    raise FileNotFoundError('Missing model data; set HEAD_MODEL_BASE_DIR:\n' + '\n'.join(missing))
+
+import re
+
+HEAD_FACE_INCLUDE_PREFIXES = (
+    'frontal', 'parietal', 'temporal', 'occipital', 'sphenoid', 'ethmoid',
+    'lacrimal', 'nasal', 'zygomatic', 'maxilla',
+)  # informational only
+
+def parse_part_names(k_path):
+    names = {}
+    with open(k_path, errors='ignore') as f:
+        for line in f:
+            if line.startswith('$HMNAME COMPS'):
+                m = re.match(r'\$HMNAME COMPS\s*(\d+)(.*)', line.strip())
+                if m:
+                    names[int(m.group(1))] = m.group(2).strip()
+    return names
+
+def matches_include_list(name, include_prefixes):
+    return any(name.startswith(p) for p in include_prefixes)
+
+PART_NAMES = parse_part_names(TEMPLATE_K)
+
+# skin driving surface: true outer ("_out_") layer only
+SKIN_EXTERNAL_PIDS = [
+    pid for pid in range(SKIN_PID_MIN, SKIN_PID_MAX + 1)
+    if '_out_' in PART_NAMES.get(pid, '')
+]
+
+# informational only
+HEAD_FACE_ALL_PIDS = [
+    pid for pid in range(SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX + 1)
+    if matches_include_list(PART_NAMES.get(pid, ''), HEAD_FACE_INCLUDE_PREFIXES)
+]
+
+template_mesh = pv.read(TEMPLATE_VTU)
+print(f'Template: {template_mesh.n_points:,} pts, {template_mesh.n_cells:,} cells')
+print(f'Skin external ("_out_") PIDs found: {len(SKIN_EXTERNAL_PIDS)} -> {SKIN_EXTERNAL_PIDS}')
+print(f'Facial/cranial bone PIDs (informational only): {len(HEAD_FACE_ALL_PIDS)}')
+
+pids = template_mesh.cell_data['part_id']
+
+# skin driving surface (node_id kept so it can be written back at save time)
+skin_cells = np.where(np.isin(pids, SKIN_EXTERNAL_PIDS))[0]
+skin_sub = template_mesh.extract_cells(skin_cells)
+skin_surf = skin_sub.extract_surface().triangulate()
+skin_surf_node_ids = np.asarray(skin_surf.point_data['node_id'])
+skin_surf_pts0 = np.asarray(skin_surf.points, dtype=np.float64)
+
+# propagation target: whole mesh
+all_node_ids = np.asarray(template_mesh.point_data['node_id'])
+all_pts0     = np.asarray(template_mesh.points, dtype=np.float64)
+
+print(f'\nSkin driving surface (template) : {skin_surf.n_points:,} pts')
+print(f'Whole head model (propagation target): {len(all_node_ids):,} pts (skull + brain + jaw + everything)')
+if not SKIN_EXTERNAL_PIDS or len(skin_surf_pts0) < 4:
+    raise ValueError('No usable outer skin: check part names and PID selection.')
+if len(np.unique(all_node_ids)) != len(all_node_ids):
+    raise ValueError('Template node_id values must be unique.')
+
+def load_subject_landmarks(path, fallback_path, n_fallback, z_cutoff=None):
+    if os.path.exists(path):
+        if path.endswith('.npy'):
+            pts = np.load(path)
+        else:
+            pts = np.loadtxt(path, delimiter=',') if path.endswith('.csv') else np.loadtxt(path)
+        print(f'Loaded {len(pts):,} SAM3D landmarks from {path}')
+        return np.asarray(pts, dtype=np.float64)
+
+    print(f'⚠ {path} not found — SAM3D landmarks not wired in yet.')
+    print(f'  Falling back to {fallback_path}')
+    print('  Replace SUBJECT_LANDMARKS_PATH once SAM3D output is available.')
+
+    if fallback_path.endswith(('.k', '.key')):
+        sys.path.insert(0, os.path.join(BASE_DIR, 'Code/python'))
+        from k_mesh_qa import parse_k_file
+        fb_nodes, _, _ = parse_k_file(fallback_path)
+        fb_pts = np.array(list(fb_nodes.values()), dtype=np.float64)
+    else:
+        fb_mesh = pv.read(fallback_path)
+        fb_pts = np.asarray(fb_mesh.extract_surface().points, dtype=np.float64)
+
+    print(f'  Fallback surface: {len(fb_pts):,} points total')
+
+    if z_cutoff is not None:
+        n_before = len(fb_pts)
+        fb_pts = fb_pts[fb_pts[:, 2] >= z_cutoff]
+        print(f'  Neck/shoulder cutoff (Z >= {z_cutoff}): kept {len(fb_pts):,} / {n_before:,} '
+              f'({100 * len(fb_pts) / n_before:.1f}%)')
+
+    if len(fb_pts) < 4:
+        raise ValueError('Too few fallback surface points after neck cutoff.')
+    idx = np.random.choice(len(fb_pts), min(n_fallback, len(fb_pts)), replace=False)
+    return fb_pts[idx]
+
+subject_pts = load_subject_landmarks(SUBJECT_LANDMARKS_PATH, FALLBACK_SUBJECT_FILE, N_FALLBACK_SAMPLES, z_cutoff=NECK_Z_CUTOFF)
+print(f'Subject point set: {subject_pts.shape}')
+def validate_points(points, name):
+    if points.ndim != 2 or points.shape[1] != 3 or len(points) < 4:
+        raise ValueError(f'{name} must have shape (N,3), N >= 4')
+    if not np.isfinite(points).all():
+        raise ValueError(f'{name} contains non-finite coordinates')
+    if np.linalg.matrix_rank(points - points.mean(0)) < 3:
+        raise ValueError(f'{name} must span three dimensions for TPS')
+validate_points(subject_pts, 'subject')
+validate_points(skin_surf_pts0, 'template skin')
+
+def center_only(fixed_pts, moving_pts):
+    c_fixed  = fixed_pts.mean(0)
+    c_moving = moving_pts.mean(0)
+    f_c = fixed_pts - c_fixed
+    m_c = moving_pts - c_moving
+    scale = 1.0
+    return f_c, m_c * scale, dict(c_fixed=c_fixed, c_moving=c_moving, scale=scale)
+
+nf_c, nm_surf_cs, norm_params = center_only(subject_pts, skin_surf_pts0)
+c_fixed, c_moving, scale = norm_params['c_fixed'], norm_params['c_moving'], norm_params['scale']
+nm_all_cs = (all_pts0 - c_moving) * scale
+
+print(f'Centroid (subject) : {c_fixed.round(1)}')
+print(f'Centroid (template): {c_moving.round(1)}')
+print(f'Scale factor        : {scale:.4f} (fixed, auto-rescale removed)')
+
+def plot_overlap(a, b, title, labels=('Subject', 'Template'), n_sample=4000):
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    views = [(0, 1, 'Axial X-Y'), (0, 2, 'Coronal X-Z'), (1, 2, 'Sagittal Y-Z')]
+    sa = np.random.choice(len(a), min(n_sample, len(a)), replace=False)
+    sb = np.random.choice(len(b), min(n_sample, len(b)), replace=False)
+    for ax, (i, j, lbl) in zip(axes, views):
+        ax.scatter(a[sa, i], a[sa, j], s=1, c='red', alpha=0.3, label=labels[0])
+        ax.scatter(b[sb, i], b[sb, j], s=1, c='steelblue', alpha=0.3, label=labels[1])
+        ax.set_title(lbl); ax.set_aspect('equal'); ax.legend(markerscale=8)
+    fig.suptitle(title)
+    plt.tight_layout(); plt.show()
+
+plot_overlap(nf_c, nm_surf_cs, 'After center only (no rescale, before any registration)')
+
+def kabsch_rotation(P, Q):
+    """Rotation R (P @ R.T) mapping centered P onto centered Q."""
+    Pc = P - P.mean(0)
+    Qc = Q - Q.mean(0)
+    H = Pc.T @ Qc
+    U, S, Vt = np.linalg.svd(H)
+    d = np.sign(np.linalg.det(Vt.T @ U.T))
+    D = np.diag([1, 1, d])
+    R = Vt.T @ D @ U.T
+    return R
+
+if os.path.exists(TEMPLATE_MATCHED_LANDMARKS_PATH) and os.path.exists(SUBJECT_MATCHED_LANDMARKS_PATH):
+    tmpl_lm_raw = np.load(TEMPLATE_MATCHED_LANDMARKS_PATH)
+    subj_lm_raw = np.load(SUBJECT_MATCHED_LANDMARKS_PATH)
+    assert tmpl_lm_raw.shape == subj_lm_raw.shape, \
+        f'Matched landmark counts must match: {tmpl_lm_raw.shape} vs {subj_lm_raw.shape}'
+
+    tmpl_lm_cs = (tmpl_lm_raw - c_moving) * scale
+    subj_lm_cs = subj_lm_raw - c_fixed
+
+    R_seed = kabsch_rotation(tmpl_lm_cs, subj_lm_cs)
+    residual_before = np.linalg.norm(tmpl_lm_cs - subj_lm_cs, axis=1).mean()
+    residual_after  = np.linalg.norm(tmpl_lm_cs @ R_seed.T - subj_lm_cs, axis=1).mean()
+    print(f'Kabsch/Procrustes rigid seed from {len(tmpl_lm_raw)} matched landmark pairs')
+    print(f'  Mean landmark residual before seed rotation: {residual_before:.2f} (normalized units)')
+    print(f'  Mean landmark residual after  seed rotation: {residual_after:.2f} (normalized units)')
+
+    nm_surf_cs = nm_surf_cs @ R_seed.T
+    nm_all_cs  = nm_all_cs  @ R_seed.T
+    landmark_seed_applied = True
+    plot_overlap(nf_c, nm_surf_cs, 'After landmark-seeded rigid rotation (before PCA)')
+=======
+import os, re, sys, json, time, shutil, warnings
+from pathlib import Path
+import numpy as np, pandas as pd, pyvista as pv
+import scipy.sparse as sp
+from scipy.interpolate import RBFInterpolator
+from scipy.spatial import cKDTree
+from scipy.sparse.linalg import splu
+from pycpd import AffineRegistration, DeformableRegistration, RigidRegistration
+warnings.filterwarnings('ignore')
+
+DATA_ROOT = os.environ.get('BIODAT_ROOT', r'G:/My Drive/BioDat_Yusuke_lab')   # folder that contains Data/
+E = os.environ.get
+CASE = E('MAI_CASE', 'case_02')          # HaN-Seg case in Data/HaN-Seg/GT/usable
+NAME = E('MAI_NAME', 'E1_strict')        # run name -> Document/MaiAlgo/out_<CASE>_<NAME>
+
+INIT = E('MAI_INIT', 'centroid')         # start: 'centroid' | 'skinlm' (vertex + nose tip) | 'eyes' (uses GT eyes, not C2-strict)
+CROP = E('MAI_CROP', 'nose')             # crop: 'nose' (same distance below the nose tip as the template) | 'vertex' | 'auto' | 'eyes' (uses GT eyes)
+NOSE_WIN = float(E('MAI_NOSEWIN', '145'))   # subject nose tip is searched only this many mm below the vertex (0 = whole head; normal heads: nose 95-139 mm below the vertex); keeps a protruding chin from being taken for the nose
+CPD_W = float(E('MAI_W', '0'))           # CPD outlier weight (0 = baseline)
+USE_ICP = E('MAI_ICP', '1') != '0'       # Stage 5 non-rigid ICP
+RUN_ARAP = E('MAI_ARAP', '1') != '0'
+ARAP_ITERS, ARAP_PROX = 30, 0.0
+# boundary variants for ARAP: tag -> (alpha, smooth_k, smooth_iters); alpha<1 shrinks the ICP/blend residual toward the TPS skin
+ARAP_CONFIGS = {'': (1.0, 0, 0), '_a05': (0.5, 0, 0), '_sm': (1.0, 30, 3)}
+
+N_PTS, N_LM = 3000, 2000
+CPD_ALPHA, CPD_BETA, CPD_MAX_ITER, CPD_TOL = 2.0, 2.0, 100, 1e-6
+TPS_SMOOTHING = 1e-3
+ICP_ITERS, ICP_MAX_DIST, ICP_STEP, ICP_K = 10, 15.0, 0.5, 8
+AFFINE_SV_CLAMP = (0.8, 1.25)
+BLEND_MM, CONF_K, CONF_ITERS = 10.0, 8, 3
+AXIS_MAP = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]], float)    # THUMS (X=ant,Y=left,Z=up) -> LPS-like
+
+_here = Path(os.getcwd()).resolve()
+REPO = next(p for p in [_here, *_here.parents] if (p / 'Document' / 'MaiAlgo').exists())
+MAI = REPO / 'Document' / 'MaiAlgo'
+OUTD = MAI / 'output'                       # experiment outputs (git-ignored out_* folders)
+RES = MAI / 'results' / 'case_csv'          # per-case result tables
+OUTD.mkdir(exist_ok=True); RES.mkdir(parents=True, exist_ok=True)
+OUT = OUTD / f'out_{CASE}_{NAME}'
+OUT.mkdir(exist_ok=True)
+GT = Path(DATA_ROOT) / 'Data/HaN-Seg/GT/usable' / CASE / 'stl' / CASE
+np.random.seed(0)
+print(CASE, NAME, '->', OUT)
+
+PART_NAMES = {}
+for line in open(Path(DATA_ROOT) / 'Data/Ls_dyna_model/Head_V6.k', errors='ignore'):
+    if line.startswith('$HMNAME COMPS'):
+        m = re.match(r'\$HMNAME COMPS\s*(\d+)(.*)', line.strip())
+        if m: PART_NAMES[int(m.group(1))] = m.group(2).strip()
+
+tmpl = pv.read(str(Path(DATA_ROOT) / 'Data/mesh_model/Head_V6.vtu'))
+pids = tmpl.cell_data['part_id']
+node_id = np.asarray(tmpl.point_data['node_id'])
+id2idx = {int(n): i for i, n in enumerate(node_id)}
+
+SKIN_PIDS = [p for p in range(88000160, 88000241) if '_out_' in PART_NAMES.get(p, '')]
+EYE_PIDS = list(range(88000173, 88000217))
+skin = tmpl.extract_cells(np.where(np.isin(pids, SKIN_PIDS))[0]).extract_surface(algorithm='dataset_surface').triangulate()
+skin_idx = np.array([id2idx[int(n)] for n in skin.point_data['node_id']])
+
+all_pts0 = np.asarray(tmpl.points, float) @ AXIS_MAP.T         # template in the subject frame
+skin_pts0 = all_pts0[skin_idx]
+eyes_t = np.asarray(tmpl.extract_cells(np.where(np.isin(pids, EYE_PIDS))[0]).points, float) @ AXIS_MAP.T
+tmpl_eye_c = eyes_t.mean(0)
+print(f'{tmpl.n_points:,} nodes, skin surface {len(skin_idx):,} pts, template eye centroid {tmpl_eye_c.round(1)}')
+
+skin_full = np.asarray(pv.read(f'{GT}_skin_surface.stl').points, float)
+gt_eye_c = np.asarray(pv.read(f'{GT}_eyes_OAR.stl').points, float).mean(0)
+
+if CROP == 'eyes':
+    D = tmpl_eye_c[2] - skin_pts0[:, 2].min()          # template skin bottom is D mm below its eyes
+    z_cut = gt_eye_c[2] - D
+elif CROP == 'nose':
+    # skin-only analogue of the eye crop: cut the subject the same distance below the nose tip as the template skin ends below its own
+    nose_t = skin_pts0[np.argmin(skin_pts0[:, 1])]
+    _win = skin_full if NOSE_WIN <= 0 else skin_full[skin_full[:, 2] >= skin_full[:, 2].max() - NOSE_WIN]
+    nose_s = _win[np.argmin(_win[:, 1])]
+    z_cut = nose_s[2] - (nose_t[2] - skin_pts0[:, 2].min())
+    print(f'nose tip z: template {nose_t[2]:.1f}, subject {nose_s[2]:.1f}')
+elif CROP == 'vertex':
+    # both clouds are cut the same height below their own vertex (the shorter of the two extents)
+    H_t = skin_pts0[:, 2].max() - skin_pts0[:, 2].min()
+    H_s = skin_full[:, 2].max() - skin_full[:, 2].min()
+    H = min(H_t, H_s)
+    z_cut = skin_full[:, 2].max() - H
+    tmpl_keep = skin_pts0[:, 2] >= skin_pts0[:, 2].max() - H
+    print(f'template extent {H_t:.0f} mm, subject extent {H_s:.0f} mm -> common height {H:.0f} mm below vertex')
+>>>>>>> /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/remote.py
+else:
+    for z_cut in np.sort(np.unique(np.round(skin_full[:, 2]))):
+        keep = skin_full[skin_full[:, 2] >= z_cut]
+        if np.abs(keep[:, 0] - np.median(keep[:, 0])).max() <= 110.0: break
+if CROP != 'vertex':
+    tmpl_keep = np.ones(len(skin_pts0), bool)
+skin_crop = skin_full[skin_full[:, 2] >= z_cut]
+subject_pts = skin_crop[np.random.choice(len(skin_crop), min(N_PTS, len(skin_crop)), replace=False)]
+print(f'{CASE}: skin {len(skin_full):,} -> cropped z >= {z_cut:.1f}: {len(skin_crop):,} pts, sampled {len(subject_pts)}')
+
+def skin_landmarks(P, win=0.0):
+    W = P if win <= 0 else P[P[:, 2] >= P[:, 2].max() - win]
+    return np.array([P[np.argmax(P[:, 2])], W[np.argmin(W[:, 1])]])    # vertex, nose tip (most anterior; LPS y<0 = anterior)
+
+
+if INIT == 'eyes':
+    c_fixed, c_moving = gt_eye_c, tmpl_eye_c
+elif INIT == 'skinlm':
+    c_fixed, c_moving = skin_landmarks(skin_crop, NOSE_WIN).mean(0), skin_landmarks(skin_pts0[tmpl_keep]).mean(0)
+else:
+    c_fixed, c_moving = subject_pts.mean(0), skin_pts0[tmpl_keep].mean(0)
+scale = 1.0
+subj = subject_pts - c_fixed
+tmpl_skin = (skin_pts0 - c_moving) * scale
+tmpl_all = (all_pts0 - c_moving) * scale
+
+<<<<<<< /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/local.py
+moving_lm_pca  = moving_lm  @ R_pca.T
+nm_surf_pca    = nm_surf_cs @ R_pca.T
+nm_all_pca     = nm_all_cs  @ R_pca.T
+
+plot_overlap(fixed_lm, moving_lm_pca, 'After PCA coarse pre-alignment (identity if landmark-seeded)')
+
+# pycpd 2.0 ignores scale=False; explicitly constrain scale in the M step.
+class FixedScaleRigidRegistration(RigidRegistration):
+    def update_transform(self):
+        super().update_transform()
+        self.s = 1.0
+        muX = (self.P @ self.X).sum(axis=0) / self.Np
+        muY = (self.P.T @ self.Y).sum(axis=0) / self.Np
+        self.t = muX - muY @ self.R
+
+rigid_reg = FixedScaleRigidRegistration(X=fixed_lm, Y=moving_lm_pca, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
+TY_rigid, (s_r, R_r, t_r) = rigid_reg.register()
+
+print(f'Rigid scale       : {s_r:.4f}')
+print(f'Rigid rotation R  :\n{np.round(R_r, 3)}')
+print(f'Rigid translation : {np.round(t_r, 2)}')
+
+plot_overlap(fixed_lm, TY_rigid, 'After rigid CPD registration')
+
+AFFINE_SINGULAR_VALUE_CLAMP = (0.8, 1.25)  # reject implausible shear/scale
+
+affine_reg = AffineRegistration(X=fixed_lm, Y=TY_rigid, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
+_, (B_a, t_a) = affine_reg.register()
+=======
+>>>>>>> /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/remote.py
+
+def fps(points, n, seed=0):
+    rng = np.random.default_rng(seed)
+    n = min(n, len(points))
+    sel = np.empty(n, dtype=np.int64)
+    sel[0] = rng.integers(len(points))
+    dist = np.linalg.norm(points - points[sel[0]], axis=1)
+    for k in range(1, n):
+        sel[k] = np.argmax(dist)
+        dist = np.minimum(dist, np.linalg.norm(points - points[sel[k]], axis=1))
+    return sel
+
+
+fixed_lm = subj[fps(subj, N_LM)]
+moving_lm = tmpl_skin[tmpl_keep][fps(tmpl_skin[tmpl_keep], N_LM)]
+print('start:', INIT, '| landmarks', fixed_lm.shape, moving_lm.shape)
+print('diagnostic only (not used): eye-centroid offset template vs subject after this start = %.1f mm'
+      % np.linalg.norm((gt_eye_c - c_fixed) - (tmpl_eye_c - c_moving)))
+
+t0 = time.time()
+TY_rigid, (s_r, R_r, t_r) = RigidRegistration(X=fixed_lm, Y=moving_lm, w=CPD_W, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL).register()
+print(f'rigid scale {s_r:.4f}')
+
+_, (B_a, t_a) = AffineRegistration(X=fixed_lm, Y=TY_rigid, w=CPD_W, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL).register()
+U, S, Vt = np.linalg.svd(B_a)
+TY_affine = TY_rigid @ (U @ np.diag(np.clip(S, *AFFINE_SV_CLAMP)) @ Vt) + t_a
+print('affine SV', S.round(3))
+
+TY_cpd, _ = DeformableRegistration(X=fixed_lm, Y=TY_affine, alpha=CPD_ALPHA, beta=CPD_BETA, w=CPD_W,
+                                   max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL).register()
+print(f'CPD done in {time.time() - t0:.0f}s')
+
+<<<<<<< /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/local.py
+plt.figure(figsize=(6, 3))
+plt.plot(cpd_errors)
+plt.xlabel('EM iteration'); plt.ylabel('Callback error (may be undefined for deformable CPD)')
+plt.title('Deformable CPD convergence'); plt.tight_layout(); plt.show()
+=======
+def graph_smooth(v, pts, k):
+    _, idx = cKDTree(pts).query(pts, k=k + 1)
+    return v[idx].mean(axis=1)
+>>>>>>> /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/remote.py
+
+
+<<<<<<< /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/local.py
+tps = RBFInterpolator(moving_lm_pca, TY_cpd, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+=======
+def nonrigid_icp(src, tgt, iters, max_dist, step, k):
+    pts, tree = src.copy(), cKDTree(tgt)
+    for _ in range(iters):
+        d, nn = tree.query(pts)
+        pull = tgt[nn] - pts
+        pull[(d / scale) >= max_dist] = 0.0
+        pts = pts + step * graph_smooth(pull, pts, k)
+    return pts
+>>>>>>> /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/remote.py
+
+
+def damped_blend(orig, warped, tgt):
+    tree = cKDTree(tgt)
+    conf = np.clip((tree.query(orig)[0] - tree.query(warped)[0]) / scale / BLEND_MM + 0.5, 0.0, 1.0)
+    _, knn = cKDTree(warped).query(warped, k=CONF_K + 1)
+    for _ in range(CONF_ITERS): conf = conf[knn].mean(axis=1)
+    return orig + conf[:, None] * (warped - orig), conf
+
+<<<<<<< /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/local.py
+def graph_smooth(vectors, points, k=8, iters=1):
+    tree = cKDTree(points)
+    _, idx = tree.query(points, k=min(k + 1, len(points)))  # includes self
+    smoothed = vectors.copy()
+    for _ in range(iters):
+        smoothed = smoothed[idx].mean(axis=1)
+    return smoothed
+=======
+>>>>>>> /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/remote.py
+
+tps = RBFInterpolator(moving_lm, TY_cpd, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+skin_tps = tps(tmpl_skin)
+skin_icp = nonrigid_icp(skin_tps, subj, ICP_ITERS, ICP_MAX_DIST, ICP_STEP, ICP_K) if USE_ICP else skin_tps.copy()
+skin_final, conf = damped_blend(tmpl_skin, skin_icp, subj)
+print(f'blend: kept {(conf >= 0.999).sum()}, reverted {(conf <= 0.001).sum()} / {len(conf)}')
+
+def skin_agreement(src, tgt):
+    a, b = cKDTree(tgt).query(src)[0] / scale, cKDTree(src).query(tgt)[0] / scale
+    return dict(mean=a.mean(), median=np.median(a), rms=np.sqrt((a ** 2).mean()), max=a.max(),
+                chamfer=a.mean() + b.mean(), hausdorff=max(a.max(), b.max()))
+
+
+stages = [('0. Center', moving_lm), ('2. Rigid CPD', TY_rigid), ('3. Affine CPD', TY_affine), ('4. Non-rigid CPD', TY_cpd),
+          ('5. TPS (dense)', skin_tps), ('6. ICP', skin_icp), ('6.5 Blend (final)', skin_final)]
+summary = pd.DataFrame([dict(stage=n, **skin_agreement(p, subj)) for n, p in stages]).round(3)
+print(summary.to_string(index=False))
+summary.to_csv(OUT / 'validation_summary.csv', index=False)
+
+
+def to_world(p): return p / scale + c_fixed
+
+
+# interior: one TPS through the final skin, then the skin nodes themselves are overwritten
+tps_final = RBFInterpolator(tmpl_skin, skin_final, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+coords_reg = to_world(tps_final(tmpl_all))
+coords_reg[skin_idx] = to_world(skin_final)
+
+
+def umeyama(src, dst):
+    mu_s, mu_d = src.mean(0), dst.mean(0)
+    U_, S_, Vt_ = np.linalg.svd((dst - mu_d).T @ (src - mu_s) / len(src))
+    d = np.diag([1, 1, np.sign(np.linalg.det(U_) * np.linalg.det(Vt_))])
+    R = U_ @ d @ Vt_
+    s = np.trace(np.diag(S_) @ d) / (src - mu_s).var(0).sum()
+    return s, R, mu_d - s * R @ mu_s
+
+
+s_u, R_u, t_u = umeyama(moving_lm, TY_rigid)
+coords_init = to_world(tmpl_all)
+coords_sim = to_world(s_u * tmpl_all @ R_u.T + t_u)
+
+
+def save_run(out, coords):
+    out = Path(out); out.mkdir(exist_ok=True)
+    m = tmpl.copy(); m.points = coords
+    m.save(str(out / 'Head_V6_registered.vtu'))
+    np.save(out / 'coords_registered.npy', coords)
+
+
+save_run(OUT, coords_reg)
+np.save(OUT / 'coords_init.npy', coords_init)
+np.save(OUT / 'coords_similarity.npy', coords_sim)
+json.dump(dict(case=CASE, name=NAME, init=INIT, crop=CROP, w=CPD_W, icp=USE_ICP, rigid_scale=float(s_r), z_cut=float(z_cut),
+               final=summary.iloc[-1].to_dict()), open(OUT / 'run_meta.json', 'w'), indent=1, default=float)
+print('saved', OUT)
+
+CRANIAL = ('frontal', 'parietal', 'temporal', 'occipital')
+_cran = [p for p, n in PART_NAMES.items() if n.startswith(CRANIAL) and 88000001 <= p <= 88000099]
+STRUCT = {'skull_outer': ([p for p in _cran if '_external_' in PART_NAMES[p]], 'outer_table_surface'),
+          'skull_inner': ([p for p in _cran if '_internal_' in PART_NAMES[p]], 'inner_table_surface'),
+          'brain': (list(range(88000100, 88000104)) + list(range(88000120, 88000124)), 'brain'),
+          'brainstem': ([88000104, 88000105, 88000124, 88000125], 'brainstem_OAR'),
+          'eyes': (EYE_PIDS, 'eyes_OAR')}
+GT_PTS = {k: np.asarray(pv.read(f'{GT}_{v[1]}.stl').points, float) for k, v in STRUCT.items()}
+
+
+def surface_samples(coords, pid_list, n=150000):
+    m = tmpl.copy(); m.points = coords
+    s = m.extract_cells(np.where(np.isin(pids, pid_list))[0]).extract_surface(algorithm='dataset_surface').triangulate().clean()
+    V, F = np.asarray(s.points, float), np.asarray(s.faces).reshape(-1, 4)[:, 1:]
+    T = V[F]
+    area = 0.5 * np.linalg.norm(np.cross(T[:, 1] - T[:, 0], T[:, 2] - T[:, 0]), axis=1)
+    rng = np.random.default_rng(0)
+    tri = rng.choice(len(F), n, p=area / area.sum())
+    u, v = rng.random(n), rng.random(n)
+    f = u + v > 1
+    u[f], v[f] = 1 - u[f], 1 - v[f]
+    return np.vstack([V, T[tri, 0] + u[:, None] * (T[tri, 1] - T[tri, 0]) + v[:, None] * (T[tri, 2] - T[tri, 0])])
+
+
+def eval_interior(out, all_states=True):
+    out = Path(out)
+    states = {'baseline registered': np.load(out / 'coords_registered.npy')}
+    if all_states:
+        states = {'init (axis map only)': np.load(out / 'coords_init.npy'),
+                  'similarity (rigid CPD)': np.load(out / 'coords_similarity.npy'), **states}
+    rows = []
+    for sname, coords in states.items():
+        for k, (pl, _) in STRUCT.items():
+            T, G = surface_samples(coords, pl), GT_PTS[k]
+            a, b = cKDTree(G).query(T)[0], cKDTree(T).query(G)[0]
+            rows.append(dict(state=sname, structure=k, mean_T2G=a.mean(), mean_G2T=b.mean(), mean_sym=0.5 * (a.mean() + b.mean()),
+                             hd95=max(np.percentile(a, 95), np.percentile(b, 95)),
+                             centroid_offset=np.linalg.norm(T.mean(0) - G.mean(0)), extent_ratio_z=np.ptp(T[:, 2]) / np.ptp(G[:, 2])))
+    df = pd.DataFrame(rows).round(2)
+    df.to_csv(out / 'interior_vs_gt.csv', index=False)
+    return df
+
+
+df_int = eval_interior(OUT)
+print(df_int[df_int.state != 'init (axis map only)'].to_string(index=False))
+
+sys.path.insert(0, str(REPO / 'Code' / 'python'))
+from k_mesh_qa import parse_k_file
+
+nodes_k, solids_k, _ = parse_k_file(str(Path(DATA_ROOT) / 'Data/Ls_dyna_model/Head_V6.k'))
+k_ids = np.array(sorted(nodes_k))
+X0 = np.array([nodes_k[n] for n in k_ids], float)
+k_idx = np.array([id2idx[int(n)] for n in k_ids])               # k-file node order -> vtu point order
+e_ids = np.array(sorted(solids_k))
+conn_ids = np.array([solids_k[e][1] for e in e_ids])
+conn = np.searchsorted(k_ids, conn_ids)
+CORNERS = [(0, (1, 3, 4)), (1, (2, 0, 5)), (2, (3, 1, 6)), (3, (0, 2, 7)), (4, (7, 5, 0)), (5, (4, 6, 1)), (6, (5, 7, 2)), (7, (6, 4, 3))]
+
+valid = np.zeros((len(conn), 8), bool)
+for c, (a, b, d) in CORNERS:
+    cols, ok = [c, a, b, d], np.ones(len(conn), bool)
+    for i in range(4):
+        for j in range(i + 1, 4): ok &= conn_ids[:, cols[i]] != conn_ids[:, cols[j]]
+    valid[:, c] = ok
+
+
+def corner_sj(X):
+    P = X[conn]
+    sj = np.full((len(conn), 8), np.nan)
+    for c, (a, b, d) in CORNERS:
+        e1, e2, e3 = P[:, a] - P[:, c], P[:, b] - P[:, c], P[:, d] - P[:, c]
+        det = np.einsum('ij,ij->i', e1, np.cross(e2, e3))
+        nrm = np.linalg.norm(e1, axis=1) * np.linalg.norm(e2, axis=1) * np.linalg.norm(e3, axis=1)
+        sj[:, c] = np.where(valid[:, c], det / np.maximum(nrm, 1e-300), np.nan)
+    return sj
+
+
+sj0 = corner_sj(X0)
+fail0 = np.nanmin(sj0, axis=1) <= 0
+
+
+def jacobian_check(out, verbose=True):
+    out = Path(out)
+    sj1 = corner_sj(np.load(out / 'coords_registered.npy')[k_idx])
+    fail1 = np.nanmin(sj1, axis=1) <= 0
+    flip = ((sj0 * sj1 < 0) & valid).any(1)
+    res = dict(solid_elements=int(len(e_ids)), failing_template=int(fail0.sum()), failing_registered=int(fail1.sum()),
+               newly_failing=int((~fail0 & fail1).sum()), fixed_by_warp=int((fail0 & ~fail1).sum()), any_corner_sign_change=int(flip.sum()))
+    (out / 'jacobian').mkdir(exist_ok=True)
+    json.dump(res, open(out / 'jacobian' / 'jacobian_summary.json', 'w'), indent=1)
+    if verbose: print(res)
+    return res
+
+
+jac = jacobian_check(OUT)
+
+HEX_E = np.array([[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]])
+QUAD_E = np.array([[0,1],[1,2],[2,3],[3,0]])
+edges = np.vstack([c[:, HEX_E if ct == 12 else QUAD_E].reshape(-1, 2) for ct, c in tmpl.cells_dict.items()])
+edges = edges[edges[:, 0] != edges[:, 1]]
+edges = np.unique(np.sort(edges, axis=1), axis=0)
+N = len(all_pts0)
+_, lab = sp.csgraph.connected_components(sp.coo_matrix((np.ones(len(edges)), (edges[:, 0], edges[:, 1])), shape=(N, N)), directed=False)
+driven = np.isin(lab, np.unique(lab[skin_idx]))        # nodes connected to the skin (eyes are not)
+
+# rest shape: template after one global affine fit to the run's final skin
+base_skin = coords_reg[skin_idx]
+H_ = np.c_[all_pts0[skin_idx], np.ones(len(skin_idx))]
+Rest = np.c_[all_pts0, np.ones(N)] @ np.linalg.lstsq(H_, base_skin, rcond=None)[0]
+L0 = np.linalg.norm(Rest[edges[:, 0]] - Rest[edges[:, 1]], axis=1)
+edges, L0 = edges[L0 > 1e-9], L0[L0 > 1e-9]
+i, j = edges[:, 0], edges[:, 1]
+w = 1.0 / np.maximum(L0, 1e-3)
+e0 = Rest[i] - Rest[j]
+Ne = len(i)
+A_sum = sp.csr_matrix((np.ones(2 * Ne), (np.r_[i, j], np.r_[np.arange(Ne), np.arange(Ne)])), shape=(N, Ne))
+A_dif = sp.csr_matrix((np.r_[np.ones(Ne), -np.ones(Ne)], (np.r_[i, j], np.r_[np.arange(Ne), np.arange(Ne)])), shape=(N, Ne))
+fixed = np.zeros(N, bool); fixed[skin_idx] = True
+free = np.where(driven & ~fixed)[0]
+Lap = sp.coo_matrix((np.r_[w, w, -w, -w], (np.r_[i, j, i, j], np.r_[i, j, j, i])), shape=(N, N)).tocsr()
+Lfc = Lap[free][:, np.where(fixed)[0]]
+lu = splu((Lap[free][:, free] + ARAP_PROX * sp.eye(len(free))).tocsc())      # factorised once, reused by every config
+skin_nn = cKDTree(Rest[skin_idx])
+skin_tps_w = to_world(skin_tps)
+
+
+def boundary(alpha, k, iters):
+    tgt = skin_tps_w + alpha * (base_skin - skin_tps_w)
+    if k:
+        d = tgt - Rest[skin_idx]
+        nn = skin_nn.query(Rest[skin_idx], k=k + 1)[1]
+        for _ in range(iters): d = d[nn].mean(axis=1)
+        tgt = Rest[skin_idx] + d
+    return tgt
+
+
+def arap(P_init, iters=ARAP_ITERS, prox=ARAP_PROX):
+    P = P_init.copy()
+    Pfix = P[fixed]
+    for it in range(iters):
+<<<<<<< /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/local.py
+        d, nn_idx = tree_t.query(pts)
+        pull = target_pts[nn_idx] - pts
+        valid = (d / scale) < max_corr_dist_mm   # scale converts normalized units back to mm
+        pull[~valid] = 0.0
+        pull_smooth = graph_smooth(pull, pts, k=k_smooth)
+        pull_smooth[~valid] = 0.0  # preserve rejection after smoothing
+        pts = pts + step * pull_smooth
+    return pts
+
+nm_surf_icp_cs = nonrigid_icp_refine(
+    nm_surf_warped_cs, nf_c,
+    iters=ICP_ITERS, max_corr_dist_mm=ICP_MAX_CORR_DIST_MM,
+    step=ICP_STEP, scale=scale, k_smooth=ICP_SMOOTH_NEIGHBORS,
+)
+
+plot_overlap(nf_c, nm_surf_icp_cs, 'After non-rigid ICP refinement')
+
+BLEND_TRANSITION_MM = 10.0
+CONF_SMOOTH_NEIGHBORS = 8
+CONF_SMOOTH_ITERS = 3
+
+def coverage_damped_blend(original_pts, warped_pts, target_pts, scale,
+                           transition_mm=BLEND_TRANSITION_MM,
+                           smooth_k=CONF_SMOOTH_NEIGHBORS, smooth_iters=CONF_SMOOTH_ITERS):
+    tree_t = cKDTree(target_pts)
+    d_orig_mm, _   = tree_t.query(original_pts)
+    d_warped_mm, _ = tree_t.query(warped_pts)
+    d_orig_mm   /= scale
+    d_warped_mm /= scale
+
+    # per-point confidence in the warp: 1 = warp better, 0 = original better
+    advantage = d_orig_mm - d_warped_mm
+    confidence_raw = np.clip(advantage / transition_mm + 0.5, 0.0, 1.0)
+
+    # smooth confidence spatially so neighbors don't diverge
+    tree_p = cKDTree(warped_pts)
+    _, knn_idx = tree_p.query(warped_pts, k=min(smooth_k + 1, len(warped_pts)))
+    confidence = confidence_raw.copy()
+    for _ in range(smooth_iters):
+        confidence = confidence[knn_idx].mean(axis=1)
+
+    blended = original_pts + confidence[:, None] * (warped_pts - original_pts)
+
+    d_blended_mm, _ = tree_t.query(blended)
+    d_blended_mm /= scale
+    return blended, confidence, confidence_raw, d_orig_mm, d_warped_mm, d_blended_mm
+
+nm_surf_final_cs, coverage_conf, coverage_conf_raw, d_orig_mm, d_warped_mm, d_blended_mm = coverage_damped_blend(
+    nm_surf_pca, nm_surf_icp_cs, nf_c, scale)
+
+n_warp_kept = int((coverage_conf >= 0.999).sum())
+n_reverted  = int((coverage_conf <= 0.001).sum())
+n_blend     = len(coverage_conf) - n_warp_kept - n_reverted
+print(f'Warp kept in full (warp was better)  : {n_warp_kept:,} / {len(coverage_conf):,} points')
+print(f'Reverted to original (original was better): {n_reverted:,} / {len(coverage_conf):,} points')
+print(f'Partially blended                     : {n_blend:,} / {len(coverage_conf):,} points')
+
+conf_delta = np.abs(coverage_conf - coverage_conf_raw)
+print(f'Confidence changed by smoothing -- mean {conf_delta.mean():.3f}, max {conf_delta.max():.3f}, '
+      f'{(conf_delta > 0.1).sum():,} points shifted by >0.1')
+
+print(f'Blend diagnostic -- mean residual: original={d_orig_mm.mean():.2f}mm  warped={d_warped_mm.mean():.2f}mm  blended={d_blended_mm.mean():.2f}mm')
+print(f'                     max residual : original={d_orig_mm.max():.2f}mm  warped={d_warped_mm.max():.2f}mm  blended={d_blended_mm.max():.2f}mm')
+
+plot_overlap(nf_c, nm_surf_final_cs, 'After confidence-damped blend (final, spatially smoothed)')
+
+def surface_agreement(source_pts, target_pts, scale):
+    tree_t = cKDTree(target_pts)
+    tree_s = cKDTree(source_pts)
+    d_s2t, _ = tree_t.query(source_pts)
+    d_t2s, _ = tree_s.query(target_pts)
+    d_s2t /= scale; d_t2s /= scale
+    chamfer = d_s2t.mean() + d_t2s.mean()
+    hausdorff = max(d_s2t.max(), d_t2s.max())
+    return dict(mean=d_s2t.mean(), median=np.median(d_s2t), rms=np.sqrt((d_s2t**2).mean()),
+                max=d_s2t.max(), chamfer=chamfer, hausdorff=hausdorff, hd95=max(np.percentile(d_s2t,95), np.percentile(d_t2s,95)))
+
+rows = []
+for stage, pts in [
+    ('0. Center + optional seed',        moving_lm),
+    ('1. PCA pre-align',        moving_lm_pca),
+    ('2. Rigid CPD',            TY_rigid),
+    ('3. Affine CPD',           TY_affine),
+    ('4. Non-rigid CPD',        TY_cpd),
+    ('5. TPS (dense surface)',  nm_surf_warped_cs),
+    ('6. Non-rigid ICP',         nm_surf_icp_cs),
+    ('6.5 Confidence blend (final)', nm_surf_final_cs),
+]:
+    rows.append(dict(stage=stage, **surface_agreement(pts, nf_c, scale)))
+
+summary_df = pd.DataFrame(rows).round(3)
+summary_df
+
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.bar(summary_df['stage'], summary_df['hausdorff'], color='steelblue', alpha=0.85)
+ax.set_ylabel('Hausdorff distance to subject surface (mm)')
+ax.set_title('Registration quality by stage (lower = better)')
+plt.xticks(rotation=25, ha='right')
+plt.tight_layout(); plt.show()
+
+improvement = (summary_df.iloc[0]['hausdorff'] - summary_df.iloc[-1]['hausdorff']) / summary_df.iloc[0]['hausdorff'] * 100
+print(f"Hausdorff distance: {summary_df.iloc[0]['hausdorff']:.2f} mm -> {summary_df.iloc[-1]['hausdorff']:.2f} mm "
+      f"({improvement:.1f}% reduction)")
+print(f"Final Hausdorff distance: {summary_df.iloc[-1]['hausdorff']:.2f} mm")
+
+def to_world(pts_cs_pca):
+    # TPS output is already in centered SUBJECT coordinates.
+    return (pts_cs_pca / scale) + c_fixed
+
+# Stage 5b -- rebuild TPS from the fully refined skin correspondence, apply to whole mesh
+# Bound global TPS memory: dense fitting requires a quadratic system.
+# Use fixed controls across experiments; inspect fit error before increasing.
+N_FINAL_TPS_CONTROLS = 500
+control_idx = farthest_point_sampling(nm_surf_pca, N_FINAL_TPS_CONTROLS)
+tps_final = RBFInterpolator(nm_surf_pca[control_idx], nm_surf_final_cs[control_idx],
+                            kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+all_final_cs = np.vstack([tps_final(nm_all_pca[i:i+5000])
+                          for i in range(0, len(nm_all_pca), 5000)])
+# Keep a single field for skin and interior; no separate skin overwrite.
+skin_final_cs = tps_final(nm_surf_pca)
+print('Final TPS skin fit RMS:', np.sqrt(np.mean(np.sum(
+    (skin_final_cs - nm_surf_final_cs)**2, axis=1))))
+rows.append(dict(stage='8. Final TPS exported skin',
+                 **surface_agreement(skin_final_cs, nf_c, scale)))
+summary_df = pd.DataFrame(rows).round(3)
+
+final_world_coords = to_world(all_final_cs)
+skin_world_coords   = to_world(skin_final_cs)  # skin's own directly-computed position
+
+updated_coords = {int(nid): xyz for nid, xyz in zip(all_node_ids, final_world_coords)}
+# All nodes, including skin, use the same TPS mapping.
+print(f'Nodes to update: {len(all_node_ids):,} (whole head model), '
+      f'{len(skin_surf_node_ids):,} skin nodes use the same field')
+
+node_id_to_idx = {int(nid): idx for idx, nid in enumerate(template_mesh.point_data['node_id'])}
+
+final_mesh = template_mesh.copy()
+new_points = final_mesh.points.copy()
+for nid, xyz in updated_coords.items():
+    new_points[node_id_to_idx[nid]] = xyz
+final_mesh.points = new_points
+
+OUTPUT_VTU = os.path.join(OUTPUT_DIR, 'Head_V6_skin_registered_fixed.vtu')
+if not np.isfinite(new_points).all():
+    raise ValueError('Non-finite output coordinates')
+final_mesh.save(OUTPUT_VTU)
+reloaded = pv.read(OUTPUT_VTU)
+np.testing.assert_allclose(reloaded.points, new_points)
+assert reloaded.n_cells == template_mesh.n_cells
+print(f'Wrote -> {OUTPUT_VTU}')
+
+out_csv = os.path.join(OUTPUT_DIR, 'validation_summary_fixed.csv')
+summary_df.to_csv(out_csv, index=False)
+print(f'Wrote -> {out_csv}')
+
+sys.path.insert(0, os.path.join(BASE_DIR, 'Code/python'))
+from k_mesh_qa import parse_k_file, check_mesh
+
+nodes_orig, elems_solid_orig, elems_shell_orig = parse_k_file(TEMPLATE_K)
+
+# Every node updated now (whole head model), not just a subset
+nodes_new = dict(nodes_orig)
+nodes_new.update(updated_coords)
+
+print(f'Node count  -> original: {len(nodes_orig):,}, updated: {len(nodes_new):,}')
+print(f'Solid elems : {len(elems_solid_orig):,}   Shell elems: {len(elems_shell_orig):,}  (topology unchanged)')
+
+result = check_mesh(nodes_new, elems_solid_orig, label=OUTPUT_VTU, elems_shell=elems_shell_orig)
+
+# Confirm every node that should have moved actually differs from original
+moved_ok = all(not np.array_equal(nodes_orig[nid], nodes_new[nid]) for nid in updated_coords)
+print(f'\nAll updated nodes actually differ from original: {moved_ok}')
+=======
+        S = np.einsum('e,ea,eb->eab', w, e0, P[i] - P[j]).reshape(Ne, 9)
+        U, _, Vt = np.linalg.svd((A_sum @ S).reshape(N, 3, 3))
+        Vt[np.linalg.det(Vt.transpose(0, 2, 1) @ U.transpose(0, 2, 1)) < 0, 2] *= -1
+        Rm = Vt.transpose(0, 2, 1) @ U.transpose(0, 2, 1)
+        Re = 0.5 * (np.einsum('eab,eb->ea', Rm[i], e0) + np.einsum('eab,eb->ea', Rm[j], e0)) * w[:, None]
+        Pn = P.copy(); Pn[free] = lu.solve((A_dif @ Re)[free] - Lfc @ Pfix + prox * P[free])
+        step = np.abs(Pn[free] - P[free]).max(); P = Pn
+    print(f'  last max step {step:.3f} mm')
+    return P
+
+
+solid_nodes = np.unique(tmpl.cells_dict[12])
+arap_rows = []
+for tag, (alpha, k, iters) in (ARAP_CONFIGS.items() if RUN_ARAP else []):
+    t0 = time.time()
+    tgt = boundary(alpha, k, iters)
+    P0_ = coords_reg.copy(); P0_[skin_idx] = tgt
+    coords_arap = arap(P0_)
+    out_a = Path(str(OUT) + '_arap' + tag)
+    save_run(out_a, coords_arap)
+    for f in ('coords_init.npy', 'coords_similarity.npy', 'run_meta.json'):
+        shutil.copy(OUT / f, out_a)
+    va = summary.copy()
+    va.loc[va.index[-1], ['mean', 'median', 'rms', 'max', 'chamfer', 'hausdorff']] = list(skin_agreement((coords_arap[skin_idx] - c_fixed) * scale, subj).values())
+    va.to_csv(out_a / 'validation_summary.csv', index=False)
+    df_a = eval_interior(out_a, all_states=False)
+    jac_a = jacobian_check(out_a, verbose=False)
+    r_ = df_a.set_index('structure')
+    arap_rows.append(dict(config='arap' + tag, alpha=alpha, smooth=f'{k}x{iters}', skin_mean=va.iloc[-1]['mean'], skull_out=r_.loc['skull_outer', 'mean_sym'],
+                          skull_in=r_.loc['skull_inner', 'mean_sym'], brain=r_.loc['brain', 'mean_sym'], stem=r_.loc['brainstem', 'mean_sym'],
+                          failing=jac_a['failing_registered']))
+    print(f'arap{tag}: {time.time() - t0:.0f}s')
+pd.DataFrame(arap_rows).round(2)
+
+def results_table(case):
+    rows = []
+    for d in sorted(OUTD.glob(f'out_{case}_*')):
+        if not (d / 'interior_vs_gt.csv').exists() or not (d / 'jacobian' / 'jacobian_summary.json').exists(): continue
+        v = pd.read_csv(d / 'validation_summary.csv').iloc[-1]
+        meta = json.load(open(d / 'run_meta.json'))
+        jj = json.load(open(d / 'jacobian' / 'jacobian_summary.json'))
+        reg = pd.read_csv(d / 'interior_vs_gt.csv').query("state == 'baseline registered'").set_index('structure')
+        rows.append(dict(run=d.name.replace(f'out_{case}_', ''), rigid_scale=meta['rigid_scale'], skin_mean=v['mean'], skin_hd=v['hausdorff'],
+                         skull_out=reg.loc['skull_outer', 'mean_sym'], skull_in=reg.loc['skull_inner', 'mean_sym'],
+                         brain=reg.loc['brain', 'mean_sym'], stem=reg.loc['brainstem', 'mean_sym'], eyes=reg.loc['eyes', 'mean_sym'],
+                         brain_zext=reg.loc['brain', 'extent_ratio_z'], failing=jj['failing_registered'], newly_failing=jj['newly_failing']))
+    return pd.DataFrame(rows).round(2)
+
+
+res = results_table(CASE)
+res.to_csv(RES / f'results_{CASE}.csv', index=False)
+res
+
+STRUCT_IDX = {'skin': skin_idx}
+for _k, (_pl, _) in STRUCT.items():
+    _m = tmpl.extract_cells(np.where(np.isin(pids, _pl))[0]).extract_surface(algorithm='dataset_surface')
+    STRUCT_IDX[_k] = np.array([id2idx[int(n)] for n in _m.point_data['node_id']])
+GT_ALL = {'skin': skin_crop, **GT_PTS}
+INNER = ['skull_outer', 'skull_inner', 'brain', 'brainstem', 'eyes']
+C1_INNER_IT, C1_NCTRL, C1_CLIP, SKIN_SM = 2, 1000, 25.0, (30, 3)         # SKIN_SM = (neighbours, passes) of the skin smoothing
+SMALL, STEM_EXCL, SCALE_CLAMP = ('brainstem', 'eyes'), 25.0, (0.8, 1.25)  # small structures get their own affine fit; mm kept away from the brainstem in the brain term
+
+
+def smooth_skin(coords, k=SKIN_SM[0], passes=SKIN_SM[1]):
+    """Smooth skin: its displacement (vs the template after one affine fit) averaged over its k nearest skin nodes, `passes` times.
+    The interior is rebuilt from the smooth skin (one TPS through it, as in cell 14), so the skin layer is not stretched between a
+    smoothed skin and an interior that followed the unsmoothed one."""
+    H_ = np.c_[all_pts0[skin_idx], np.ones(len(skin_idx))]
+    Rest = np.c_[all_pts0, np.ones(len(all_pts0))] @ np.linalg.lstsq(H_, coords[skin_idx], rcond=None)[0]
+    d = coords[skin_idx] - Rest[skin_idx]
+    nn = cKDTree(Rest[skin_idx]).query(Rest[skin_idx], k=k + 1)[1]
+    for _ in range(passes): d = d[nn].mean(axis=1)
+    skin_sm = Rest[skin_idx] + d
+    out = RBFInterpolator(all_pts0[skin_idx], skin_sm, kernel='thin_plate_spline', smoothing=1e-3)(all_pts0)
+    out[skin_idx] = skin_sm
+    return out, skin_sm
+
+
+def fit_affine(P, G, iters=40, trim=0.85):
+    """Trimmed bidirectional ICP, 12-DOF affine P -> G; singular values clamped so a small structure cannot collapse or stretch."""
+    A, t = np.eye(3), np.zeros(3)
+    tg = cKDTree(G)
+    for _ in range(iters):
+        Q = P @ A.T + t
+        d1, n1 = tg.query(Q); k1 = d1 <= np.quantile(d1, trim)
+        d2, n2 = cKDTree(Q).query(G); k2 = d2 <= np.quantile(d2, trim)
+        src = np.vstack([P[k1], P[n2[k2]]]); dst = np.vstack([G[n1[k1]], G[k2]])
+        M = np.linalg.lstsq(np.c_[src, np.ones(len(src))], dst, rcond=None)[0]
+        U, S, Vt = np.linalg.svd(M[:3].T)
+        if np.linalg.det(U) * np.linalg.det(Vt) < 0: Vt[-1] *= -1
+        A = U @ np.diag(np.clip(S, *SCALE_CLAMP)) @ Vt
+        t = (dst - src @ A.T).mean(0)
+    return A, t
+
+
+def small_targets(P, G, k):
+    """Target positions of a small structure: the brainstem is fitted as a whole, each eye on its own."""
+    if k != 'eyes':
+        A, t = fit_affine(P, G); return P @ A.T + t
+    out = np.zeros_like(P); left = P[:, 0] < P[:, 0].mean()
+    for sel in (left, ~left):
+        g = (G[:, 0] < G[:, 0].mean()) if sel is left else (G[:, 0] >= G[:, 0].mean())
+        A, t = fit_affine(P[sel], G[g]); out[sel] = P[sel] @ A.T + t
+    return out
+
+
+def register(targets, start, lambdas=(1e3,), inner=C1_INNER_IT, n_ctrl=C1_NCTRL, clip=C1_CLIP, smooth_k=20, stem_excl=STEM_EXCL, w_struct=None, seed=0, log=True):
+    """One data term per structure in `targets` (equal total weight), thin-plate-spline regulariser, stiff -> flexible.
+    Each pull is averaged over `smooth_k` neighbours so the template folds are not collapsed onto a smoother GT.
+    Brainstem and eyes are pulled towards their own affine fit instead (nearest-point pulls squash them); the GT brain surface contains the
+    brainstem and the template brain does not, so the brain term ignores everything within `stem_excl` mm of the brainstem."""
+    nc = {k: (n_ctrl[k] if isinstance(n_ctrl, dict) else n_ctrl) for k in targets}
+    X = start.copy()
+    rng = np.random.default_rng(seed)
+    ctrl = {k: rng.choice(len(STRUCT_IDX[k]), min(nc[k], len(STRUCT_IDX[k])), replace=False) for k in targets}
+    for lam in lambdas:
+        for _ in range(inner):
+            S, D, SM, rep = [], [], [], {}
+            for k in targets:
+                idx, G = STRUCT_IDX[k], GT_ALL[k]
+                P = X[idx]
+                near = np.zeros(len(P), bool)
+                if k == 'brain' and stem_excl and 'brainstem' in targets:
+                    G = G[cKDTree(GT_PTS['brainstem']).query(G)[0] > stem_excl]
+                    near = cKDTree(X[STRUCT_IDX['brainstem']]).query(P)[0] < stem_excl
+                d, nn = cKDTree(G).query(P)
+                d = np.where(near, np.inf, d)
+                disp = G[nn] - P
+                dg, jn = cKDTree(P).query(G)                          # reverse: GT point -> nearest template node
+                ok = dg < clip
+                cnt = np.bincount(jn[ok], minlength=len(idx)).astype(float)
+                acc = np.stack([np.bincount(jn[ok], weights=G[ok, a], minlength=len(idx)) for a in range(3)], 1)
+                has = cnt > 0
+                disp[has] = 0.5 * (disp[has] + acc[has] / cnt[has, None] - P[has])
+                disp[d >= clip] = 0.0
+                if k in SMALL:
+                    disp = small_targets(P, G, k) - P; d = np.zeros_like(d)
+                c = ctrl[k]
+                disp_c = disp[cKDTree(P).query(P[c], k=smooth_k + 1)[1]].mean(axis=1) if (smooth_k and k not in SMALL) else disp[c]
+                sel = d[c] < clip                                      # drop pairs without a counterpart
+                S.append(P[c][sel]); D.append(disp_c[sel]); SM.append(np.full(sel.sum(), lam * nc[k] / max(sel.sum(), 1) / (w_struct or {}).get(k, 1.0)))
+                rep[k] = (d.mean(), int(sel.sum()))
+            S, D, SM = np.vstack(S), np.vstack(D), np.concatenate(SM)
+            X = X + RBFInterpolator(S, D, kernel='thin_plate_spline', smoothing=SM)(X)
+        if log: print(f'lam {lam:g}: ' + ' '.join(f'{k} {v[0]:.2f}({v[1]})' for k, v in rep.items()), flush=True)
+    return X
+
+def save_and_score(tag, X):
+    out = OUTD / f'out_{CASE}_{NAME}_{tag}'
+    save_run(out, X)
+    for f in ('coords_init.npy', 'coords_similarity.npy', 'run_meta.json'): shutil.copy(OUT / f, out)
+    d = eval_interior(out, all_states=False).set_index('structure')['mean_sym']
+    j = jacobian_check(out, verbose=False)
+    return dict(run=tag, **d.to_dict(), failing=j['failing_registered'])
+
+
+NC = {**{k: 1000 for k in INNER}, 'brain': 300}
+coords_s, skin_sm = smooth_skin(coords_reg)                  # smooth skin, held fixed: the skin is already fitted, the engine moves the interior
+ALL_RUNS = {'c1_stiff': (INNER, (1e3,)),                     # valid mesh, few failing solids
+            'c1_mid': (INNER, (1e3, 1e2)),                   # more accurate, more failing solids
+            'l_skin': ([], (1e3,)),                          # smooth skin + TPS interior, nothing else observed (C2)
+            'l_skin_skull': (['skull_outer', 'skull_inner'], (1e3, 1e2))}
+WANT = E('MAI_C1', 'c1_stiff,c1_mid,l_skin,l_skin_skull' if E('MAI_LADDER', '0') == '1' else 'c1_stiff,c1_mid').split(',')
+C1_RUNS = {k: v for k, v in ALL_RUNS.items() if k in WANT}
+c1_rows = []
+for tag, (tg, lam) in C1_RUNS.items():
+    X = register(tg, coords_s, lambdas=lam, n_ctrl=NC, log=False) if tg else coords_s.copy()
+    X[skin_idx] = skin_sm
+    c1_rows.append(save_and_score(tag, X))
+c1_df = pd.DataFrame(c1_rows).round(2)
+c1_df.to_csv(RES / f'results_c1_{CASE}.csv', index=False)
+c1_df
+
+BATCH = OUTD / 'out_tmp_batch'        # one folder per case: l_skin.npy, c1_stiff.npy, skin_sm.npy (batch run of cells 0-12 with MAI_C1='l_skin,c1_stiff')
+TIER3 = {'case_07', 'case_27', 'case_30', 'case_34', 'case_41'}      # head tipped back: the nose-tip start is wrong
+S1, S2 = ['skull_outer', 'skull_inner'], ['brain', 'brainstem', 'eyes']
+NSUB = {'skin': 1500, 'skull_outer': 1200, 'skull_inner': 1200, 'brain': 1500, 'brainstem': 400, 'eyes': 600}
+_rng = np.random.default_rng(0)
+SUB = {k: np.sort(_rng.choice(STRUCT_IDX[k], n, replace=False)) for k, n in NSUB.items()}      # the same template nodes in every case
+_skin_pos = {int(n): i for i, n in enumerate(skin_idx)}
+SKIN_POS = np.array([_skin_pos[int(n)] for n in SUB['skin']])
+RANKS, RIDGE = (1, 2, 3, 4, 6, 8, 12, 16, 24), (1e-4, 1e-3, 1e-2, 1e-1, 1.0)
+
+
+def umeyama(src, dst):
+    """Similarity (scale, rotation, translation) mapping src onto dst."""
+    mu_s, mu_d = src.mean(0), dst.mean(0)
+    U_, D_, Vt_ = np.linalg.svd((dst - mu_d).T @ (src - mu_s) / len(src))
+    d = np.diag([1, 1, np.sign(np.linalg.det(U_) * np.linalg.det(Vt_))])
+    R = U_ @ d @ Vt_
+    s = np.trace(np.diag(D_) @ d) / (src - mu_s).var(0).sum()
+    return s, R, mu_d - s * R @ mu_s
+
+
+def build_dataset(cases):
+    """Per case: smooth skin and the C1 interior of the chosen template nodes, aligned by the skin only (generalised Procrustes)."""
+    raw = {}
+    for c in cases:
+        X = np.load(BATCH / c / 'c1_stiff.npy').astype(float)
+        raw[c] = (np.load(BATCH / c / 'skin_sm.npy').astype(float)[SKIN_POS], {k: X[SUB[k]] for k in S1 + S2})
+    ref = raw[cases[0]][0].copy()
+    for _ in range(6):
+        al_ = []
+        for c in cases:
+            s, R, t = umeyama(raw[c][0], ref); al_.append(s * raw[c][0] @ R.T + t)
+        ref = np.mean(al_, 0)
+    TF = {c: umeyama(raw[c][0], ref) for c in cases}
+    al = lambda c, P: TF[c][0] * P @ TF[c][1].T + TF[c][2]
+    XS = np.array([al(c, raw[c][0]).ravel() for c in cases])
+    Y1 = np.array([np.concatenate([al(c, raw[c][1][k]).ravel() for k in S1]) for c in cases])
+    Y2 = np.array([np.concatenate([al(c, raw[c][1][k]).ravel() for k in S2]) for c in cases])
+    return TF, XS, Y1, Y2
+
+
+def kr_fit(Xt, Yt):
+    """Reduced-rank ridge regression (top r shape modes of the predictor + ridge lam), r and lam chosen by explicit leave-one-out refits."""
+    n_ = len(Xt); err = np.zeros((len(RANKS), len(RIDGE)))
+    for j in range(n_):
+        idx = np.delete(np.arange(n_), j); mx, my = Xt[idx].mean(0), Yt[idx].mean(0)
+        Xc, Yc = Xt[idx] - mx, Yt[idx] - my
+        K = Xc @ Xc.T; sc = np.trace(K) / len(K); w, U = np.linalg.eigh(K); w, U = w[::-1], U[:, ::-1]
+        UtY = U.T @ Yc; kU = ((Xt[j] - mx) @ Xc.T) @ U
+        for ir, r in enumerate(RANKS):
+            for ic, c_ in enumerate(RIDGE):
+                err[ir, ic] += ((my + (kU[:r] / (np.maximum(w[:r], 1e-12) + c_ * sc)) @ UtY[:r] - Yt[j]) ** 2).mean()
+    ir, ic = np.unravel_index(np.argmin(err), err.shape); r, c_ = RANKS[ir], RIDGE[ic]
+    mx, my = Xt.mean(0), Yt.mean(0); Xc, Yc = Xt - mx, Yt - my
+    K = Xc @ Xc.T; sc = np.trace(K) / len(K); w, U = np.linalg.eigh(K); w, U = w[::-1], U[:, ::-1]
+    A = (U[:, :r] / (np.maximum(w[:r], 1e-12) + c_ * sc)) @ U[:, :r].T
+    return dict(mx=mx, my=my, Xc=Xc, alpha=A @ Yc, c=c_, r=r)
+
+
+def kr_pred(m, x): return m['my'] + ((x - m['mx']) @ m['Xc'].T) @ m['alpha']
+
+
+def blocks(v, ks):
+    out, i = {}, 0
+    for k in ks: out[k] = v[i:i + NSUB[k] * 3].reshape(-1, 3); i += NSUB[k] * 3
+    return out
+
+
+def loo_predictions(cases, train='all'):
+    """Leave one subject out: skin -> skull (stage 1), skull -> brain, brainstem, eyes (stage 2, trained on the true skull), plus the
+    mean shape and a joint skin -> everything model. Returns world-frame target positions per case and the node errors against C1."""
+    TF, XS, Y1, Y2 = build_dataset(cases); preds, rows = {}, []
+    for h, c in enumerate(cases):
+        tr = [i for i, cc in enumerate(cases) if i != h and (train == 'all' or cc not in TIER3)]
+        m1, m2, mj = kr_fit(XS[tr], Y1[tr]), kr_fit(Y1[tr], Y2[tr]), kr_fit(XS[tr], np.c_[Y1[tr], Y2[tr]])
+        y1p = kr_pred(m1, XS[h]); yj = kr_pred(mj, XS[h])
+        out = {'mean': (Y1[tr].mean(0), Y2[tr].mean(0)), 'chain': (y1p, kr_pred(m2, y1p)), 'joint': (yj[:Y1.shape[1]], yj[Y1.shape[1]:])}
+        s_, R_, t_ = TF[c]; preds[c] = {}
+        for name, (p1, p2) in out.items():
+            b, bt = {**blocks(p1, S1), **blocks(p2, S2)}, {**blocks(Y1[h], S1), **blocks(Y2[h], S2)}
+            rows.append(dict(case=c, model=name, tier3=c in TIER3, **{k + '_nodeerr': np.linalg.norm(b[k] - bt[k], axis=1).mean() for k in b}))
+            for k in b: preds[c][f'{name}__{k}'] = ((b[k] - t_) @ R_) / s_
+    return preds, pd.DataFrame(rows)
+
+def register_corr(targets, start, lam=1e3, inner=2):
+    """Pull template nodes with known correspondence (predicted surfaces) to their targets through one stiff TPS; the smooth skin is put back by the caller."""
+    X = start.copy()
+    for _ in range(inner):
+        S = np.vstack([X[ids] for ids, T in targets.values()]); D = np.vstack([T - X[ids] for ids, T in targets.values()])
+        X = X + RBFInterpolator(S, D, kernel='thin_plate_spline', smoothing=np.full(len(S), lam))(X)
+    return X
+
+
+def predicted_mesh(case, preds, method='chain'):
+    """Register the template with the predicted skull, brain, brainstem and eyes of `case` (skin = the observed smooth skin)."""
+    start = np.load(BATCH / case / 'l_skin.npy').astype(float)
+    X = register_corr({k: (SUB[k], preds[case][f'{method}__{k}']) for k in S1 + S2}, start)
+    X[skin_idx] = np.load(BATCH / case / 'skin_sm.npy').astype(float)
+    return X
+
+UT_TAU, UT_MU, UT_RING = 0.10, 1e-4, 1       # target corner quality, spring to the registered position (per mm^2), rings of neighbours that may move
+UT_PIN = ('skin',)                           # structures whose nodes get UT_SKIN_X times the spring (the observed skin should hardly move)
+UT_SKIN_X = 20.0
+UT_BOX = (5.0, 1.5)                          # largest move (mm) of an interior node and of a skin node from the registered position
+
+
+def corner_energy(Xk, ce, tau):
+    """Energy sum (tau - SJ)^2 over the corners of elements `ce` with SJ < tau, and its gradient with respect to the node array Xk (k-file order)."""
+    P = Xk[conn[ce]]
+    E, G = 0.0, np.zeros_like(Xk)
+    for c, (a, b, d) in CORNERS:
+        e1, e2, e3 = P[:, a] - P[:, c], P[:, b] - P[:, c], P[:, d] - P[:, c]
+        n1, n2, n3 = np.linalg.norm(e1, axis=1), np.linalg.norm(e2, axis=1), np.linalg.norm(e3, axis=1)
+        den = np.maximum(n1 * n2 * n3, 1e-300)
+        c23, c31, c12 = np.cross(e2, e3), np.cross(e3, e1), np.cross(e1, e2)
+        s = np.einsum('ij,ij->i', e1, c23) / den
+        act = valid[ce, c] & (s < tau)
+        if not act.any(): continue
+        w = np.where(act, -2.0 * (tau - s), 0.0)
+        E += float(np.sum(np.where(act, (tau - s) ** 2, 0.0)))
+        g1 = w[:, None] * (c23 / den[:, None] - s[:, None] * e1 / np.maximum(n1 ** 2, 1e-300)[:, None])
+        g2 = w[:, None] * (c31 / den[:, None] - s[:, None] * e2 / np.maximum(n2 ** 2, 1e-300)[:, None])
+        g3 = w[:, None] * (c12 / den[:, None] - s[:, None] * e3 / np.maximum(n3 ** 2, 1e-300)[:, None])
+        nodes = conn[ce]
+        np.add.at(G, nodes[:, a], g1); np.add.at(G, nodes[:, b], g2); np.add.at(G, nodes[:, d], g3)
+        np.add.at(G, nodes[:, c], -(g1 + g2 + g3))
+    return E, G
+
+
+def untangle(X, tau=UT_TAU, mu=UT_MU, rings=UT_RING, maxiter=800, pin_skin=False, box=UT_BOX, log=True):
+    """Local mesh repair after the warp: move only the nodes of bad hexahedra (corner scaled Jacobian < tau) and their neighbours so that every corner reaches tau,
+    while a spring holds each node near its registered position (stiffer on the skin). Returns the repaired node array (vtu order)."""
+    from scipy.optimize import minimize
+    Xk0 = X[k_idx].astype(float)
+    sj = corner_sj(Xk0); bad = np.nanmin(sj, axis=1) < tau
+    free = np.zeros(len(Xk0), bool); free[np.unique(conn[bad])] = True
+    for _ in range(rings):
+        free[np.unique(conn[free[conn].any(1)])] = True
+    if pin_skin: free &= ~np.isin(k_idx, skin_idx)                  # the observed skin is never moved
+    fi = np.where(free)[0]; ce = np.where(free[conn].any(1))[0]
+    skin_k = np.isin(k_idx[fi], skin_idx); mu_i = np.where(skin_k, mu * UT_SKIN_X, mu)[:, None]
+    def fun(v):
+        Xk = Xk0.copy(); Xk[fi] = v.reshape(-1, 3)
+        E, G = corner_energy(Xk, ce, tau)
+        d = Xk[fi] - Xk0[fi]
+        return E + float((mu_i * d ** 2).sum()), (G[fi] + 2.0 * mu_i * d).ravel()
+    n0 = int((np.nanmin(sj, axis=1) <= 0).sum())
+    lim = np.where(skin_k, box[1], box[0])[:, None] * np.ones((1, 3)); x0 = Xk0[fi]
+    res = minimize(fun, x0.ravel(), jac=True, method='L-BFGS-B', bounds=list(zip((x0 - lim).ravel(), (x0 + lim).ravel())), options=dict(maxiter=maxiter, maxfun=maxiter * 2))
+    Xk = Xk0.copy(); Xk[fi] = res.x.reshape(-1, 3)
+    n1 = int((np.nanmin(corner_sj(Xk), axis=1) <= 0).sum())
+    if log: print(f'untangle: {len(fi):,} free nodes, {len(ce):,} elements, failing {n0} -> {n1}, {res.nit} iterations, max move {np.linalg.norm(Xk[fi] - Xk0[fi], axis=1).max():.2f} mm')
+    out = X.copy(); out[k_idx] = Xk
+    return out
+
+# Example: repair the predicted mesh of one case (needs cells 2, 4, 18 and the batch folder of cell 13)
+case = 'case_02'
+X = np.load(BATCH / 'res' / f'{case}_all_chain.npy').astype(float)       # predicted mesh of the leave-one-out run
+Y = untangle(X)                                                           # no solid with a corner scaled Jacobian <= 0 afterwards
+sj = np.nanmin(corner_sj(Y[k_idx]), axis=1)
+print('failing', int((sj <= 0).sum()), '| below 0.1:', int((sj < 0.1).sum()), '| minimum', round(float(sj.min()), 4))
+
+DECK = Path(DATA_ROOT) / 'Data/Ls_dyna_model/Head_V6_impact_baseline.k'     # right-hemisphere head + moving rigid wall (fits the 128K-element student cap)
+
+
+def write_deck(X_world, out_path):
+    """Write the half-head impact deck for a warped mesh (all 179,676 nodes, subject frame, vtu order): only the *NODE coordinates of the baseline deck change.
+    The head is first put back into the template pose (rigid fit on the deck nodes) so the wall and the fixed node set act where they did on the template."""
+    lines = open(DECK, errors='replace').read().split('\n')
+    i0 = next(i for i, l in enumerate(lines) if l.startswith('*NODE')) + 1
+    i1 = next(i for i in range(i0, len(lines)) if lines[i].startswith('*'))
+    rows = [i for i in range(i0, i1) if not lines[i].startswith('$') and lines[i].strip()]
+    vi = np.array([id2idx[int(lines[r][:8])] for r in rows])
+    T0 = np.asarray(tmpl.points, float)
+    Xt = np.asarray(X_world, float) @ AXIS_MAP                                 # back to the THUMS axes
+    A, B = Xt[vi], T0[vi]; ca, cb = A.mean(0), B.mean(0)
+    U, _, Vt = np.linalg.svd((A - ca).T @ (B - cb)); R = Vt.T @ np.diag([1, 1, np.sign(np.linalg.det(Vt.T @ U.T))]) @ U.T
+    Xp = (Xt - ca) @ R.T + cb
+    for r, v in zip(rows, vi): lines[r] = lines[r][:8] + ''.join(f'{c:16.8g}' for c in Xp[v]) + lines[r][56:]
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True); open(out_path, 'w').write('\n'.join(lines))
+    ie = next(i for i, l in enumerate(lines) if l.startswith('*ELEMENT_SOLID')) + 1
+    eids = []
+    for l in lines[ie:]:
+        if l.startswith('*'): break
+        if not l.startswith('$') and l.strip(): eids.append(int(l[:8]))
+    in_deck = np.isin(e_ids, np.array(eids)); sj = np.nanmin(corner_sj((Xp @ AXIS_MAP.T)[k_idx]), axis=1)
+    print(f'{out_path}: {in_deck.sum():,} solids, failing {int(((sj <= 0) & in_deck).sum())}, below 0.1: {int(((sj < 0.1) & in_deck).sum())}; '
+          f'pose rms to the template {np.sqrt(((Xp[vi] - T0[vi]) ** 2).sum(1).mean()):.2f} mm')
+    return Xp
+
+
+# Example: Y = untangle(np.load(BATCH / 'res' / 'case_40_all_chain.npy').astype(float)); write_deck(Y, OUTD / 'out_sim_case_40' / 'Head_V6_impact_case_40.k')
+>>>>>>> /var/folders/y9/rry3cvf94gx56ff8bqk7hv3r0000gn/T/tmpffnxddu7/remote.py

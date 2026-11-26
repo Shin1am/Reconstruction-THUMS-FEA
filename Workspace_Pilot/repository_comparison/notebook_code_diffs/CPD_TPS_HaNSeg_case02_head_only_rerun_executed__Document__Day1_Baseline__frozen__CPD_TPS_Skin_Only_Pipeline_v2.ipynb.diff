@@ -1,0 +1,252 @@
+--- CPD_TPS_HaNSeg_case02_head_only_rerun_executed.ipynb
++++ Document/Day1_Baseline/frozen/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+@@ -1,5 +1,4 @@
+-# Install dependencies in this kernel before running:
+-# %pip install pycpd pyvista numpy scipy matplotlib pandas
++!pip install pycpd pyvista numpy scipy matplotlib pandas -q
+ 
+ import os, sys
+ import numpy as np
+@@ -14,36 +13,35 @@
+ print('pyvista:', pv.__version__)
+ print('numpy  :', np.__version__)
+ 
+-BASE_DIR = os.path.abspath(os.environ.get('HEAD_MODEL_BASE_DIR', str(__import__('pathlib').Path.cwd() / 'project')))
+-# Set HEAD_MODEL_BASE_DIR to the directory containing Data/ and Code/.
++BASE_DIR = r'/home/asusry7/Desktop/New_version/New_version'
+ 
+ TEMPLATE_K    = os.path.join(BASE_DIR, 'Data/Ls_dyna_model/Head_V6.k')
+ TEMPLATE_VTU  = os.path.join(BASE_DIR, 'Data/mesh_model/Head_V6.vtu')
+ 
+ # SAM3D landmarks -- not wired in yet, falls back to FALLBACK_SUBJECT_FILE
+-SUBJECT_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/HaN-Seg/GT/usable/case_02/case_02_skin_head_only_LPS_mm.npy')
++SUBJECT_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/subject_landmarks.npy')
+ FALLBACK_SUBJECT_FILE = os.path.join(BASE_DIR, 'Data/mesh_model/ImageToStl.com_head_voxels_transform_2.vtu')
+ N_FALLBACK_SAMPLES = 3000
+ 
+ # neck/shoulder cutoff -- template skin has no neck; subject scan does
+-NECK_Z_CUTOFF = None
++NECK_Z_CUTOFF = 515.0
+ 
+ # manually matched landmark pairs (Slicer3D) -- seed Stage 0.5b's Kabsch rotation
+ TEMPLATE_MATCHED_LANDMARKS_PATH = os.path.join(BASE_DIR, 'Data/landmarks_matched/template_landmarks_matched.npy')
+ SUBJECT_MATCHED_LANDMARKS_PATH  = os.path.join(BASE_DIR, 'Data/landmarks_matched/subject_landmarks_matched.npy')
+ 
+-OUTPUT_DIR = os.path.join(BASE_DIR, 'Data/outputs/cpd_tps_case02_head_only_rerun')
++OUTPUT_DIR = os.path.join(BASE_DIR, 'Data/outputs/cpd_tps_skin_registration')
+ os.makedirs(OUTPUT_DIR, exist_ok=True)
+ 
+ SKULL_SURFACE_PID_MIN, SKULL_SURFACE_PID_MAX = 88000001, 88000099  # informational only
+ SKIN_PID_MIN, SKIN_PID_MAX = 88000160, 88000240  # driving surface PID range
+ 
+-N_LANDMARKS_FIXED  = 500
+-N_LANDMARKS_MOVING = 500
++N_LANDMARKS_FIXED  = 2000
++N_LANDMARKS_MOVING = 2000
+ 
+ CPD_ALPHA = 2.0
+ CPD_BETA  = 2.0
+-CPD_MAX_ITER = 30
++CPD_MAX_ITER = 100
+ CPD_TOL = 1e-6
+ 
+ TPS_SMOOTHING = 1e-3
+@@ -59,13 +57,6 @@
+ print('Fallback subject surface exists:', os.path.exists(FALLBACK_SUBJECT_FILE))
+ print('Matched template landmarks exists:', os.path.exists(TEMPLATE_MATCHED_LANDMARKS_PATH))
+ print('Matched subject landmarks exists :', os.path.exists(SUBJECT_MATCHED_LANDMARKS_PATH))
+-
+-required = [TEMPLATE_K, TEMPLATE_VTU]
+-if not os.path.exists(SUBJECT_LANDMARKS_PATH):
+-    required.append(FALLBACK_SUBJECT_FILE)
+-missing = [path for path in required if not os.path.isfile(path)]
+-if missing:
+-    raise FileNotFoundError('Missing model data; set HEAD_MODEL_BASE_DIR:\n' + '\n'.join(missing))
+ 
+ import re
+ 
+@@ -121,10 +112,6 @@
+ 
+ print(f'\nSkin driving surface (template) : {skin_surf.n_points:,} pts')
+ print(f'Whole head model (propagation target): {len(all_node_ids):,} pts (skull + brain + jaw + everything)')
+-if not SKIN_EXTERNAL_PIDS or len(skin_surf_pts0) < 4:
+-    raise ValueError('No usable outer skin: check part names and PID selection.')
+-if len(np.unique(all_node_ids)) != len(all_node_ids):
+-    raise ValueError('Template node_id values must be unique.')
+ 
+ def load_subject_landmarks(path, fallback_path, n_fallback, z_cutoff=None):
+     if os.path.exists(path):
+@@ -146,7 +133,7 @@
+         fb_pts = np.array(list(fb_nodes.values()), dtype=np.float64)
+     else:
+         fb_mesh = pv.read(fallback_path)
+-        fb_pts = np.asarray(fb_mesh.extract_surface().points, dtype=np.float64)
++        fb_pts = np.asarray(fb_mesh.points, dtype=np.float64)
+ 
+     print(f'  Fallback surface: {len(fb_pts):,} points total')
+ 
+@@ -156,22 +143,11 @@
+         print(f'  Neck/shoulder cutoff (Z >= {z_cutoff}): kept {len(fb_pts):,} / {n_before:,} '
+               f'({100 * len(fb_pts) / n_before:.1f}%)')
+ 
+-    if len(fb_pts) < 4:
+-        raise ValueError('Too few fallback surface points after neck cutoff.')
+     idx = np.random.choice(len(fb_pts), min(n_fallback, len(fb_pts)), replace=False)
+     return fb_pts[idx]
+ 
+ subject_pts = load_subject_landmarks(SUBJECT_LANDMARKS_PATH, FALLBACK_SUBJECT_FILE, N_FALLBACK_SAMPLES, z_cutoff=NECK_Z_CUTOFF)
+ print(f'Subject point set: {subject_pts.shape}')
+-def validate_points(points, name):
+-    if points.ndim != 2 or points.shape[1] != 3 or len(points) < 4:
+-        raise ValueError(f'{name} must have shape (N,3), N >= 4')
+-    if not np.isfinite(points).all():
+-        raise ValueError(f'{name} contains non-finite coordinates')
+-    if np.linalg.matrix_rank(points - points.mean(0)) < 3:
+-        raise ValueError(f'{name} must span three dimensions for TPS')
+-validate_points(subject_pts, 'subject')
+-validate_points(skin_surf_pts0, 'template skin')
+ 
+ def center_only(fixed_pts, moving_pts):
+     c_fixed  = fixed_pts.mean(0)
+@@ -301,16 +277,7 @@
+ 
+ plot_overlap(fixed_lm, moving_lm_pca, 'After PCA coarse pre-alignment (identity if landmark-seeded)')
+ 
+-# pycpd 2.0 ignores scale=False; explicitly constrain scale in the M step.
+-class FixedScaleRigidRegistration(RigidRegistration):
+-    def update_transform(self):
+-        super().update_transform()
+-        self.s = 1.0
+-        muX = (self.P @ self.X).sum(axis=0) / self.Np
+-        muY = (self.P.T @ self.Y).sum(axis=0) / self.Np
+-        self.t = muX - muY @ self.R
+-
+-rigid_reg = FixedScaleRigidRegistration(X=fixed_lm, Y=moving_lm_pca, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
++rigid_reg = RigidRegistration(X=fixed_lm, Y=moving_lm_pca, max_iterations=CPD_MAX_ITER, tolerance=CPD_TOL)
+ TY_rigid, (s_r, R_r, t_r) = rigid_reg.register()
+ 
+ print(f'Rigid scale       : {s_r:.4f}')
+@@ -347,12 +314,12 @@
+ 
+ plt.figure(figsize=(6, 3))
+ plt.plot(cpd_errors)
+-plt.xlabel('EM iteration'); plt.ylabel('Callback error (may be undefined for deformable CPD)')
++plt.xlabel('EM iteration'); plt.ylabel('CPD objective (negative log-likelihood)')
+ plt.title('Deformable CPD convergence'); plt.tight_layout(); plt.show()
+ 
+ plot_overlap(fixed_lm, TY_cpd, 'After deformable CPD registration')
+ 
+-tps = RBFInterpolator(moving_lm_pca, TY_cpd, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
++tps = RBFInterpolator(moving_lm, TY_cpd, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+ 
+ nm_surf_warped_cs = tps(nm_surf_pca)
+ all_warped_cs = tps(nm_all_pca)
+@@ -363,7 +330,7 @@
+ 
+ def graph_smooth(vectors, points, k=8, iters=1):
+     tree = cKDTree(points)
+-    _, idx = tree.query(points, k=min(k + 1, len(points)))  # includes self
++    _, idx = tree.query(points, k=k + 1)  # includes self
+     smoothed = vectors.copy()
+     for _ in range(iters):
+         smoothed = smoothed[idx].mean(axis=1)
+@@ -378,7 +345,6 @@
+         valid = (d / scale) < max_corr_dist_mm   # scale converts normalized units back to mm
+         pull[~valid] = 0.0
+         pull_smooth = graph_smooth(pull, pts, k=k_smooth)
+-        pull_smooth[~valid] = 0.0  # preserve rejection after smoothing
+         pts = pts + step * pull_smooth
+     return pts
+ 
+@@ -409,7 +375,7 @@
+ 
+     # smooth confidence spatially so neighbors don't diverge
+     tree_p = cKDTree(warped_pts)
+-    _, knn_idx = tree_p.query(warped_pts, k=min(smooth_k + 1, len(warped_pts)))
++    _, knn_idx = tree_p.query(warped_pts, k=smooth_k + 1)
+     confidence = confidence_raw.copy()
+     for _ in range(smooth_iters):
+         confidence = confidence[knn_idx].mean(axis=1)
+@@ -434,7 +400,7 @@
+ print(f'Confidence changed by smoothing -- mean {conf_delta.mean():.3f}, max {conf_delta.max():.3f}, '
+       f'{(conf_delta > 0.1).sum():,} points shifted by >0.1')
+ 
+-print(f'Blend diagnostic -- mean residual: original={d_orig_mm.mean():.2f}mm  warped={d_warped_mm.mean():.2f}mm  blended={d_blended_mm.mean():.2f}mm')
++print(f'Do-no-harm check -- mean residual: original={d_orig_mm.mean():.2f}mm  warped={d_warped_mm.mean():.2f}mm  blended={d_blended_mm.mean():.2f}mm')
+ print(f'                     max residual : original={d_orig_mm.max():.2f}mm  warped={d_warped_mm.max():.2f}mm  blended={d_blended_mm.max():.2f}mm')
+ 
+ plot_overlap(nf_c, nm_surf_final_cs, 'After confidence-damped blend (final, spatially smoothed)')
+@@ -448,11 +414,11 @@
+     chamfer = d_s2t.mean() + d_t2s.mean()
+     hausdorff = max(d_s2t.max(), d_t2s.max())
+     return dict(mean=d_s2t.mean(), median=np.median(d_s2t), rms=np.sqrt((d_s2t**2).mean()),
+-                max=d_s2t.max(), chamfer=chamfer, hausdorff=hausdorff, hd95=max(np.percentile(d_s2t,95), np.percentile(d_t2s,95)))
++                max=d_s2t.max(), chamfer=chamfer, hausdorff=hausdorff)
+ 
+ rows = []
+ for stage, pts in [
+-    ('0. Center + optional seed',        moving_lm),
++    ('0. Center+resize',        moving_lm),
+     ('1. PCA pre-align',        moving_lm_pca),
+     ('2. Rigid CPD',            TY_rigid),
+     ('3. Affine CPD',           TY_affine),
+@@ -479,33 +445,20 @@
+ print(f"Final Hausdorff distance: {summary_df.iloc[-1]['hausdorff']:.2f} mm")
+ 
+ def to_world(pts_cs_pca):
+-    # TPS output is already in centered SUBJECT coordinates.
+-    return (pts_cs_pca / scale) + c_fixed
++    pts_cs = pts_cs_pca @ np.linalg.inv(R_pca).T
++    return (pts_cs / scale) + c_fixed
+ 
+ # Stage 5b -- rebuild TPS from the fully refined skin correspondence, apply to whole mesh
+-# Bound global TPS memory: dense fitting requires a quadratic system.
+-# Use fixed controls across experiments; inspect fit error before increasing.
+-N_FINAL_TPS_CONTROLS = 500
+-control_idx = farthest_point_sampling(nm_surf_pca, N_FINAL_TPS_CONTROLS)
+-tps_final = RBFInterpolator(nm_surf_pca[control_idx], nm_surf_final_cs[control_idx],
+-                            kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
+-all_final_cs = np.vstack([tps_final(nm_all_pca[i:i+5000])
+-                          for i in range(0, len(nm_all_pca), 5000)])
+-# Keep a single field for skin and interior; no separate skin overwrite.
+-skin_final_cs = tps_final(nm_surf_pca)
+-print('Final TPS skin fit RMS:', np.sqrt(np.mean(np.sum(
+-    (skin_final_cs - nm_surf_final_cs)**2, axis=1))))
+-rows.append(dict(stage='8. Final TPS exported skin',
+-                 **surface_agreement(skin_final_cs, nf_c, scale)))
+-summary_df = pd.DataFrame(rows).round(3)
++tps_final = RBFInterpolator(nm_surf_pca, nm_surf_final_cs, kernel='thin_plate_spline', smoothing=TPS_SMOOTHING)
++all_final_cs = tps_final(nm_all_pca)
+ 
+ final_world_coords = to_world(all_final_cs)
+-skin_world_coords   = to_world(skin_final_cs)  # skin's own directly-computed position
++skin_world_coords   = to_world(nm_surf_final_cs)  # skin's own directly-computed position
+ 
+ updated_coords = {int(nid): xyz for nid, xyz in zip(all_node_ids, final_world_coords)}
+-# All nodes, including skin, use the same TPS mapping.
++updated_coords.update({int(nid): xyz for nid, xyz in zip(skin_surf_node_ids, skin_world_coords)})
+ print(f'Nodes to update: {len(all_node_ids):,} (whole head model), '
+-      f'{len(skin_surf_node_ids):,} skin nodes use the same field')
++      f'{len(skin_surf_node_ids):,} of which overwritten with the skin-specific refined result')
+ 
+ node_id_to_idx = {int(nid): idx for idx, nid in enumerate(template_mesh.point_data['node_id'])}
+ 
+@@ -515,16 +468,11 @@
+     new_points[node_id_to_idx[nid]] = xyz
+ final_mesh.points = new_points
+ 
+-OUTPUT_VTU = os.path.join(OUTPUT_DIR, 'Head_V6_skin_registered_fixed.vtu')
+-if not np.isfinite(new_points).all():
+-    raise ValueError('Non-finite output coordinates')
++OUTPUT_VTU = os.path.join(OUTPUT_DIR, 'Head_V6_skin_registered_v3.vtu')
+ final_mesh.save(OUTPUT_VTU)
+-reloaded = pv.read(OUTPUT_VTU)
+-np.testing.assert_allclose(reloaded.points, new_points)
+-assert reloaded.n_cells == template_mesh.n_cells
+ print(f'Wrote -> {OUTPUT_VTU}')
+ 
+-out_csv = os.path.join(OUTPUT_DIR, 'validation_summary_fixed.csv')
++out_csv = os.path.join(OUTPUT_DIR, 'validation_summary_v2.csv')
+ summary_df.to_csv(out_csv, index=False)
+ print(f'Wrote -> {out_csv}')
+ 

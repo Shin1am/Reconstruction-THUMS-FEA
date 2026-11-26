@@ -1,0 +1,149 @@
+M	.gitignore
+A	Code/CHANGELOG.md
+A	Code/VTU_TwoStage_Registration_v3.textClipping
+A	Code/ipynb/CPD_TPS_Landmark_Registration.ipynb
+A	Code/ipynb/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+A	Code/ipynb/CPD_TPS_Skin_Only_Registration.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/CT_MRI_Registration_Clean.ipynb	Code/ipynb/CT_MRI_Registration_Clean.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/CT_MRI_Registration_Clean_1.ipynb	Code/ipynb/CT_MRI_Registration_Clean_1.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/CT_MRI_Registration_K_Mesh.ipynb	Code/ipynb/CT_MRI_Registration_K_Mesh.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/CT_MRI_Registration_VTU_Mesh.ipynb	Code/ipynb/CT_MRI_Registration_VTU_Mesh.ipynb
+A	Code/ipynb/K_to_VTK_Converter.ipynb
+R100	New_version/Code/notebook/Converter/STL_to_VTK_Converter.ipynb	Code/ipynb/STL_to_VTK_Converter.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/VTU_TwoStage_Registration_v3_3.ipynb	Code/ipynb/VTU_TwoStage_Registration_v3_3.ipynb
+A	Code/ipynb/VTU_to_VTU_SyNRA_Registration.ipynb
+A	Code/ipynb/VTU_to_VTU_SyNRA_Registration_FIXED.ipynb
+R100	New_version/Code/notebook/CPS_Pipeline/CPD_TPS_Landmark_Registration.ipynb	Code/notebook/CPS_Pipeline/CPD_TPS_Landmark_Registration.ipynb
+A	Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_Mai_ver.ipynb
+R100	New_version/Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_v2.ipynb	Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+R100	New_version/Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Registration.ipynb	Code/notebook/CPS_Pipeline/CPD_TPS_Skin_Only_Registration.ipynb
+R100	New_version/Code/notebook/Converter/K_to_VTK_Converter.ipynb	Code/notebook/Converter/K_to_VTK_Converter.ipynb
+A	Code/notebook/Converter/STL_to_VTK_Converter.ipynb
+A	Code/notebook/SynRA_pipeline/CT_MRI_Registration_Clean.ipynb
+A	Code/notebook/SynRA_pipeline/CT_MRI_Registration_Clean_1.ipynb
+A	Code/notebook/SynRA_pipeline/CT_MRI_Registration_K_Mesh.ipynb
+A	Code/notebook/SynRA_pipeline/CT_MRI_Registration_VTU_Mesh.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/Skin_Only_SyNRA_Registration.ipynb	Code/notebook/SynRA_pipeline/Skin_Only_SyNRA_Registration.ipynb
+A	Code/notebook/SynRA_pipeline/VTU_TwoStage_Registration_v3_3.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/VTU_to_VTU_SyNRA_Registration.ipynb	Code/notebook/SynRA_pipeline/VTU_to_VTU_SyNRA_Registration.ipynb
+R100	New_version/Code/notebook/SynRA_pipeline/VTU_to_VTU_SyNRA_Registration_FIXED.ipynb	Code/notebook/SynRA_pipeline/VTU_to_VTU_SyNRA_Registration_FIXED.ipynb
+A	Code/py/assembly.py
+R097	New_version/Code/python/count_elem.py	Code/py/count_elem.py
+A	Code/py/extract_head.py
+R097	New_version/Code/python/extract_head_right.py	Code/py/extract_head_right.py
+A	Code/py/extract_skull_brain_parts.py
+A	Code/py/hanseg_build_scene.py
+A	Code/py/hanseg_facial.py
+A	Code/py/hanseg_gt_pipeline.py
+A	Code/py/hanseg_gt_qa_export.py
+A	Code/py/hanseg_labelpreview.py
+A	Code/py/hanseg_preview.py
+A	Code/py/hanseg_register.py
+A	Code/py/hanseg_segment.py
+A	Code/py/hanseg_stage2.py
+A	Code/py/hanseg_stage3.py
+A	Code/py/hanseg_survey.py
+R100	New_version/Code/python/k_mesh_qa.py	Code/py/k_mesh_qa.py
+R097	New_version/Code/python/list_part.py	Code/py/list_part.py
+A	Code/py/morph.py
+A	Code/py/read_results.py
+A	Code/py/thums_inner_parts.py
+A	Code/py/thums_vs_segmentation.py
+A	Code/python/count_elem.py
+R097	New_version/Code/python/extract_head.py	Code/python/extract_head.py
+A	Code/python/extract_head_right.py
+R100	New_version/Code/python/fcsv_to_npy.py	Code/python/fcsv_to_npy.py
+A	Code/python/k_mesh_qa.py
+A	Code/python/list_part.py
+R100	New_version/Code/python/vtu_to_k.py	Code/python/vtu_to_k.py
+A	Document/Day1_Baseline/Day1_Baseline.docx
+A	Document/Day1_Baseline/Day1_Baseline.md
+A	Document/Day1_Baseline/baseline_metrics.json
+A	Document/Day1_Baseline/checksums.sha256
+A	Document/Day1_Baseline/environment_requirements.txt
+A	Document/Day1_Baseline/extract_metrics.py
+A	Document/Day1_Baseline/frozen/CPD_TPS_Skin_Only_Pipeline_v2.ipynb
+A	Document/Day1_Baseline/frozen/k_mesh_qa.py
+A	Document/Day1_Baseline/frozen/validation_summary_v2.csv
+A	Document/Day1_Baseline/make_scratch_notebook.py
+A	Document/Day1_Baseline/qa_overlap.py
+A	Document/Day1_Baseline/qa_template_control.py
+A	Document/Day1_Baseline/run_baseline.sh
+A	Document/Day2_Jacobian/Day2_Jacobian_and_Ablations.docx
+A	Document/Day2_Jacobian/Day2_Jacobian_and_Ablations.md
+A	Document/Day2_Jacobian/Jacobian_Diagnostic.ipynb
+A	Document/Day2_Jacobian/Jacobian_Diagnostic_executed.ipynb
+A	Document/Day2_Jacobian/jacobian_diagnostic.py
+A	Document/Day2_Jacobian/jacobian_newly_failing_elements.csv
+A	Document/Day2_Jacobian/jacobian_overview.png
+A	Document/Day2_Jacobian/jacobian_per_part.csv
+A	Document/Day2_Jacobian/jacobian_summary.json
+A	Document/Day2_Jacobian/make_ablation_A2.py
+A	Document/Day2_Jacobian/make_ablation_A3.py
+A	Document/Day2_Jacobian/make_ablation_notebook.py
+A	Document/Day2_Jacobian/run_output.txt
+A	Document/Day3_Case02_Baseline/Day3_Case02_Baseline.md
+A	Document/Day3_Case02_Baseline/eval_interior.py
+A	Document/Day3_Case02_Baseline/jacobian_diagnostic.py
+A	Document/Day3_Case02_Baseline/run_case.py
+A	Document/MaiAlgo/MaiAlgo_Notebook_Guide.md
+A	Document/MaiAlgo/MaiAlgo_Progress.md
+A	Document/MaiAlgo/code/aggregate.py
+A	Document/MaiAlgo/code/cfg.py
+A	Document/MaiAlgo/code/eval_exp.py
+A	Document/MaiAlgo/code/jacobian_diagnostic.py
+A	Document/MaiAlgo/code/jobs.txt
+A	Document/MaiAlgo/code/run_all.sh
+A	Document/MaiAlgo/code/run_exp.py
+A	Document/MaiAlgo/logs/log_A.txt
+A	Document/MaiAlgo/logs/log_B.txt
+A	Document/MaiAlgo/logs/log_C.txt
+A	Document/MaiAlgo/logs/log_D.txt
+A	Document/MaiAlgo/logs/log_arap_C.txt
+A	Document/MaiAlgo/logs/log_arap_eval.txt
+A	Document/MaiAlgo/logs/log_arap_jac.txt
+A	Document/MaiAlgo/logs/log_case_02_C1_eyesinit_autocrop.txt
+A	Document/MaiAlgo/logs/log_case_02_C2_centroid_eyecrop.txt
+A	Document/MaiAlgo/logs/log_case_02_C_eyes.txt
+A	Document/MaiAlgo/logs/log_case_02_D_eyes_w0.2.txt
+A	Document/MaiAlgo/logs/log_case_02_baseline.txt
+A	Document/MaiAlgo/logs/log_case_03_C_eyes.txt
+A	Document/MaiAlgo/logs/log_case_03_D_eyes_w0.2.txt
+A	Document/MaiAlgo/logs/log_case_03_baseline.txt
+A	Document/MaiAlgo/logs/log_case_05_C_eyes.txt
+A	Document/MaiAlgo/logs/log_case_05_D_eyes_w0.2.txt
+A	Document/MaiAlgo/logs/log_case_05_baseline.txt
+A	Document/MaiAlgo/logs/log_case_08_C_eyes.txt
+A	Document/MaiAlgo/logs/log_case_08_D_eyes_w0.2.txt
+A	Document/MaiAlgo/logs/log_case_08_baseline.txt
+A	Document/MaiAlgo/logs/log_case_12_C_eyes.txt
+A	Document/MaiAlgo/logs/log_case_12_D_eyes_w0.2.txt
+A	Document/MaiAlgo/logs/log_case_12_baseline.txt
+A	Document/MaiAlgo/logs/queue.log
+A	Document/MaiAlgo/results/40case_before_nosefix/best1_case_23.png
+A	Document/MaiAlgo/results/40case_before_nosefix/best2_case_16.png
+A	Document/MaiAlgo/results/40case_before_nosefix/direct_prediction_errors.csv
+A	Document/MaiAlgo/results/40case_before_nosefix/per_case_scores.csv
+A	Document/MaiAlgo/results/40case_before_nosefix/summary_means.csv
+A	Document/MaiAlgo/results/40case_before_nosefix/worst1_case_34.png
+A	Document/MaiAlgo/results/40case_before_nosefix/worst2_case_30.png
+A	Document/MaiAlgo/results/40case_nosefix/best1_case_40.png
+A	Document/MaiAlgo/results/40case_nosefix/best2_case_02.png
+A	Document/MaiAlgo/results/40case_nosefix/direct_prediction_errors.csv
+A	Document/MaiAlgo/results/40case_nosefix/mesh_quality_chain.csv
+A	Document/MaiAlgo/results/40case_nosefix/per_case_scores.csv
+A	Document/MaiAlgo/results/40case_nosefix/summary_means.csv
+A	Document/MaiAlgo/results/40case_nosefix/untangle_per_case.csv
+A	Document/MaiAlgo/results/40case_nosefix/worst1_case_37.png
+A	Document/MaiAlgo/results/40case_nosefix/worst2_case_34.png
+A	Document/MaiAlgo/results/case_csv/results_case_02.csv
+A	Document/MaiAlgo/results/case_csv/results_case_03.csv
+A	Document/MaiAlgo/results/case_csv/results_case_05.csv
+A	Document/MaiAlgo/results/case_csv/results_case_08.csv
+A	Document/MaiAlgo/results/case_csv/results_case_12.csv
+M	Document/PROJECT_HANDOFF.md
+D	New_version/.gitignore
+A	PROJECT_HANDOFF.md
+A	all_parts.txt
+A	lspost.cfile
+A	lspost.msg

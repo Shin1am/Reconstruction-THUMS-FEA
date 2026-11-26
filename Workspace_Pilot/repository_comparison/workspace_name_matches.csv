@@ -1,0 +1,6 @@
+local_path,remote_path,status,mapping
+reconstruction_validation/synthetic_case02/manifest.json,2d-3d-regis/.obsidian/plugins/claude-code-mcp/manifest.json,different,basename_candidate_only
+reconstruction_validation/synthetic_case02/manifest.json,2d-3d-regis/.obsidian/plugins/obsidian42-brat/manifest.json,different,basename_candidate_only
+project/Code/python/k_mesh_qa.py,Code/py/k_mesh_qa.py,different,basename_candidate_only
+project/Code/python/k_mesh_qa.py,Code/python/k_mesh_qa.py,different,basename_candidate_only
+project/Code/python/k_mesh_qa.py,Document/Day1_Baseline/frozen/k_mesh_qa.py,different,basename_candidate_only

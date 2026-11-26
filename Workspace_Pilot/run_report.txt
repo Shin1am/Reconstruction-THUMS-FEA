@@ -1,0 +1,12 @@
+PASS: non-identity PCA regression: subject-frame output restores centroid without inverse rotation.
+
+PASS: all code cells compile.
+
+FULL RUN BLOCKED at cell 4:
+Traceback (most recent call last):
+  File "<stdin>", line 23, in <module>
+  File "cell_4", line 6, in <module>
+ModuleNotFoundError: No module named 'pyvista'
+
+
+Data discovery: no .k/.vtu/.npy model input found in workspace or Downloads. Original Linux BASE_DIR is unavailable here. External k_mesh_qa.py also not found.
